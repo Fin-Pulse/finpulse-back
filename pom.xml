@@ -15,10 +15,10 @@
     <name>FinPulse Backend</name>
 
     <modules>
-        <!--<module>api-gateway</module>-->
+        <module>apigateway</module>
         <module>userservice</module>
-        <!--<module>aggregation-service</module>
-        <module>notification-service</module>-->
+        <module>aggregationservice</module>
+        <module>notificationservice</module>
     </modules>
 
     <dependencies>
