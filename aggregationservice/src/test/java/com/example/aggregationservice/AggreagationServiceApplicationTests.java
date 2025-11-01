@@ -1,10 +1,10 @@
-package com.example.user_service;
+package com.example.aggregationservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class UserServiceApplicationTests {
+class AggregationServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
