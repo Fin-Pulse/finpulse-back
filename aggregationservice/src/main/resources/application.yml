@@ -1,0 +1,41 @@
+server:
+  port: 8082
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: aggregation-service
+  datasource:
+    url: jdbc:postgresql://postgres:5432/finpulse
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+  redis:
+    host: redis
+    port: 6379
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: aggregation-service
+      auto-offset-reset: earliest
+
+bank:
+  api:
+    base-url: https://vbank.open.bankingapi.ru
+    client-id: ${BANK_CLIENT_ID:team214}
+    client-secret: ${BANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
+    token-endpoint: /auth/bank-token
+
+logging:
+  level:
+    com.example.aggregationservice: DEBUG
+    org.springframework.web.client: DEBUG
