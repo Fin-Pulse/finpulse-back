@@ -6,6 +6,10 @@ server:
 spring:
   application:
     name: aggregation-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: jdbc:postgresql://postgres:5432/finpulse
     username: postgres
