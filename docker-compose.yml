@@ -17,14 +17,15 @@ services:
     networks:
       - finpulse-network
 
+
   # Кэш и сессии
-#  redis:
-#    image: redis:7-alpine
-#    container_name: finpulse-redis
-#    ports:
-#      - "6379:6379"
-#    networks:
-#      - finpulse-network
+  redis:
+    image: redis:7-alpine
+    container_name: finpulse-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - finpulse-network
 
   # Message Broker
 #  zookeeper:
@@ -101,13 +102,13 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - DB_URL=jdbc:postgresql://postgres:5432/finpulse
-      #- REDIS_HOST=redis
+      - REDIS_HOST=redis
       #- KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - BANK_CLIENT_ID=team214
       - BANK_CLIENT_SECRET=hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r
     depends_on:
       - postgres
-      #- redis
+      - redis
       #- kafka
     networks:
       - finpulse-network
