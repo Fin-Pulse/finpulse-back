@@ -15,6 +15,10 @@ public class RegisterRequest {
     @Size(min = 6)
     private String password;
 
+    @NotBlank
+    private String clientId;
+
     private String phone;
     private String fullName;
+
 }

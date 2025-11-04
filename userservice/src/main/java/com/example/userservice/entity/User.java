@@ -13,35 +13,43 @@ public class User {
     @GeneratedValue
     private UUID id;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
 
+    @Column(name = "phone", unique = true)
     private String phone;
 
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "full_name")
     private String fullName;
 
-    @Column(unique = true, nullable = false)
-    private String bankClientId;
-
+    @Column(name = "is_active")
     private boolean isActive = true;
+
+    @Column(name = "is_verified")
     private boolean isVerified = false;
 
+    @Column(name="bank_client_id", nullable = false)
+    private String bankClientId;
+
+    @Column(name="verification_token")
     private String verificationToken;
+
+    @Column(name="verification_token_expiry")
     private LocalDateTime verificationTokenExpiry;
 
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        bankClientId = "user_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     @PreUpdate
