@@ -1,6 +1,6 @@
 package com.example.aggregationservice.dto;
 
-import com.example.aggregationservice.model.VerificationStatus;
+import com.example.aggregationservice.model.enums.VerificationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
