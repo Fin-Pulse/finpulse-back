@@ -1,5 +1,6 @@
 package com.example.aggregationservice.dto;
 
+import com.example.aggregationservice.model.VerificationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,8 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BankVerifyResponse {
-    private String status;
+    private VerificationStatus status;
     private String message;
     private String bank;
     private int accountsCount;
+    private String consentId; // Добавим для UserService
 }
