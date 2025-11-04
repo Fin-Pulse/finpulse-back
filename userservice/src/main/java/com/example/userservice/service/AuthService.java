@@ -33,6 +33,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
         user.setFullName(request.getFullName());
+        user.setBankClientId(request.getClientId());
         user.setVerificationToken(UUID.randomUUID().toString());
         user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
 
