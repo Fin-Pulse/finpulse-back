@@ -20,7 +20,14 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          secret-value: ${JWT_SECRET:defaultSecretKeyForHackathon123}
+          secret-value: ${JWT_SECRET:EY4ZdvgJ4wnFjpeKYA2qmnCztsMR4wMAICMw7wrnSIaTRYCm51BWOaPmNtrn3n90}
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
 management:
   endpoints:
     web:
