@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +24,7 @@ public class UserVerificationService {
     private final BankApiClient bankApiClient;
     private final UserConsentRepository userConsentRepository;
     private final AccountRepository accountRepository;
+    private final ConsentEncryptionService encryptionService;
 
     @Transactional
     public BankVerifyResponse verifyClient(String bankClientId) {
@@ -33,23 +35,29 @@ public class UserVerificationService {
 
         log.info("Verifying client {} across {} active banks", bankClientId, activeBanks.size());
 
+        List<Account> allAccounts = new ArrayList<>();
+        String verifiedBank = null;
+        String consentId = null;
+
         for (Bank bank : activeBanks) {
             try {
                 log.info("Trying bank: {} ({})", bank.getName(), bank.getCode());
 
-                // 1. Запрашиваем согласие
+                // 1. Запрашиваем согласие в КАЖДОМ банке
                 var consentOpt = bankApiClient.requestConsent(bank, teamToken, bankClientId);
                 if (consentOpt.isEmpty()) {
                     log.info("Client {} not found in {}", bankClientId, bank.getCode());
-                    continue;
+                    continue; // пробуем следующий банк
                 }
 
                 var consentResponse = consentOpt.get();
 
-                // 2. Сохраняем согласие (без userId)
+                // 2. Сохраняем согласие для каждого банка
                 UserConsent consent = new UserConsent();
+                consent.setBankClientId(bankClientId);
                 consent.setBankId(bank.getId());
-                consent.setConsentId(consentResponse.getConsentId());
+                String encryptedConsentId = encryptionService.encrypt(consentResponse.getConsentId());
+                consent.setConsentId(encryptedConsentId);
                 consent.setPermissions(String.join(",", consentResponse.getPermissions()));
                 consent.setExpiresAt(consentResponse.getExpiresAt());
                 consent.setStatus("active");
@@ -57,47 +65,63 @@ public class UserVerificationService {
 
                 UserConsent savedConsent = userConsentRepository.save(consent);
 
-                // 3. Получаем и сохраняем счета
-                var accounts = bankApiClient.fetchAccounts(bank, teamToken, consentResponse.getConsentId());
-
-                for (Account account : accounts) {
+                // 3. Получаем счета из этого банка
+                String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
+                var bankAccounts = bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, bankClientId);
+                for (Account account : bankAccounts) {
                     account.setUserConsentId(savedConsent.getId());
                     accountRepository.save(account);
+                    allAccounts.add(account);
                 }
 
-                log.info("Successfully verified client {} in bank {} with {} accounts",
-                        bankClientId, bank.getCode(), accounts.size());
+                log.info("Found {} accounts in bank {}", bankAccounts.size(), bank.getCode());
 
-                return BankVerifyResponse.builder()
-                        .status(VerificationStatus.VERIFIED)
-                        .message("Client verified and accounts loaded successfully")
-                        .bank(bank.getCode())
-                        .accountsCount(accounts.size())
-                        .consentId(consentResponse.getConsentId())
-                        .build();
+                if (verifiedBank == null) {
+                    verifiedBank = bank.getCode();
+                    consentId = consentResponse.getConsentId();
+                }
 
             } catch (Exception e) {
                 log.error("Error verifying client {} in bank {}: {}",
-                        bankClientId, bank.getCode(), e.getMessage(), e);
+                        bankClientId, bank.getCode(), e.getMessage());
+                // Продолжаем с другими банками даже при ошибке
             }
         }
 
-        log.info("Client {} not found in any active bank", bankClientId);
+        // 4. Формируем финальный ответ после проверки ВСЕХ банков
+        if (!allAccounts.isEmpty()) {
+            log.info("✅ Client {} verified with {} total accounts from multiple banks",
+                    bankClientId, allAccounts.size());
 
-        return BankVerifyResponse.builder()
-                .status(VerificationStatus.NOT_FOUND)
-                .message("Client not found in any active bank")
-                .build();
+            return BankVerifyResponse.builder()
+                    .status(VerificationStatus.VERIFIED)
+                    .message("Client verified and accounts loaded from multiple banks")
+                    .bank(verifiedBank) // первый успешный банк
+                    .accountsCount(allAccounts.size()) // ОБЩЕЕ количество счетов
+                    .consentId(consentId)
+                    .build();
+        } else {
+            log.info("❌ Client {} not found in any active bank", bankClientId);
+
+            return BankVerifyResponse.builder()
+                    .status(VerificationStatus.NOT_FOUND)
+                    .message("Client not found in any active bank")
+                    .build();
+        }
     }
 
     // Метод для привязки пользователя к консенсу (вызывается из UserService)
     @Transactional
-    public void linkUserToConsent(String consentId, String userId) {
+    public void linkUserToConsent(String consentId, String bankClientId) {
         userConsentRepository.findByConsentId(consentId).ifPresent(consent -> {
-            consent.setUserId(UUID.fromString(userId));
+            consent.setBankClientId(bankClientId);  // просто String, не UUID
             consent.setUpdatedAt(Instant.now());
             userConsentRepository.save(consent);
-            log.info("Linked user {} to consent {}", userId, consentId);
+            log.info("Linked bank client {} to consent {}", bankClientId, consentId);
         });
+    }
+    public List<Account> fetchAccountsWithDecryption(Bank bank, String teamToken, String encryptedConsentId, String clientId) {
+        String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
+        return bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, clientId);
     }
 }

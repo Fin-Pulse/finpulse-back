@@ -13,8 +13,8 @@ public class UserConsent {
     @GeneratedValue
     private UUID id;
 
-    @Column(name = "user_id")
-    private UUID userId;
+    @Column(name = "bank_client_id")
+    private String bankClientId;
 
     @Column(name = "bank_id")
     private UUID bankId;

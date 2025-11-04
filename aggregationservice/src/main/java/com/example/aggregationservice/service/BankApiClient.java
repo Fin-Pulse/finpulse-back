@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Slf4j
@@ -42,75 +43,165 @@ public class BankApiClient {
             ResponseEntity<Map> response = restTemplate.exchange(
                     url, HttpMethod.POST, request, Map.class);
 
+            log.info("Bank {} response: status={}, body={}", bank.getCode(), response.getStatusCode(), response.getBody());
+
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
+                Map<String, Object> responseBody = response.getBody();
 
-                // Парсим дату истечения
-                Instant expiresAt = Instant.parse((String) data.get("expiresAt"));
+                String consentId = (String) responseBody.get("consent_id");
+                String status = (String) responseBody.get("status");
 
-                ConsentResponse consentResponse = ConsentResponse.builder()
-                        .consentId((String) data.get("consentId"))
-                        .permissions(((List<String>) data.get("permissions")).toArray(new String[0]))
-                        .expiresAt(expiresAt)
-                        .build();
+                if (consentId != null && "approved".equals(status)) {
+                    // Парсим все поля из ответа
+                    ConsentResponse consentResponse = ConsentResponse.builder()
+                            .consentId(consentId)
+                            .status(status)
+                            .permissions(new String[]{"ReadAccountsDetail", "ReadBalances", "ReadTransactionsDetail"})
+                            .createdAt(parseDateTime((String) responseBody.get("created_at")))
+                            .expiresAt(calculateExpiresAt(responseBody))
+                            .autoApproved((Boolean) responseBody.get("auto_approved"))
+                            .build();
 
-                log.info("Consent created for client {} in bank {}: {}", clientId, bank.getCode(), consentResponse.getConsentId());
-                return Optional.of(consentResponse);
+                    log.info("✅ Consent APPROVED for client {} in bank {}: {}", clientId, bank.getCode(), consentId);
+                    return Optional.of(consentResponse);
+
+                } else {
+                    log.warn("❌ Consent not approved for client {} in bank {}. Status: {}, ConsentId: {}",
+                            clientId, bank.getCode(), status, consentId);
+                    return Optional.empty();
+                }
             }
+
         } catch (Exception e) {
-            log.warn("Consent request failed for {} in bank {}: {}", clientId, bank.getCode(), e.getMessage());
+            log.error("🚨 Consent request failed for {} in bank {}: {}", clientId, bank.getCode(), e.getMessage(), e);
         }
 
         return Optional.empty();
     }
 
-    public List<Account> fetchAccounts(Bank bank, String teamToken, String consentId) {
-        String url = bank.getBaseUrl() + "/accounts";
+    private Instant parseDateTime(String dateTimeStr) {
+        if (dateTimeStr == null) return Instant.now();
+
+        try {
+            // Просто обрезаем микросекунды до 3 цифр и добавляем Z
+            if (dateTimeStr.contains(".")) {
+                String[] parts = dateTimeStr.split("\\.");
+                if (parts.length == 2) {
+                    String fractional = parts[1];
+                    if (fractional.length() > 3) {
+                        fractional = fractional.substring(0, 3);
+                    }
+                    dateTimeStr = parts[0] + "." + fractional + "Z";
+                }
+            } else if (!dateTimeStr.endsWith("Z")) {
+                dateTimeStr += "Z";
+            }
+
+            return Instant.parse(dateTimeStr);
+        } catch (Exception e) {
+            log.warn("Failed to parse date '{}', using current time", dateTimeStr);
+            return Instant.now();
+        }
+    }
+
+    /**
+     * Нормализует строку даты-времени, обрезая микросекунды до миллисекунд
+     */
+    private String normalizeDateTimeString(String dateTimeStr) {
+        if (dateTimeStr == null) return null;
+
+        // Ищем точку с дробной частью
+        int dotIndex = dateTimeStr.indexOf('.');
+        if (dotIndex == -1) {
+            return dateTimeStr; // Нет дробной части
+        }
+
+        // Ищем конец дробной части (T или конец строки)
+        int endIndex = dateTimeStr.indexOf('T', dotIndex);
+        if (endIndex == -1) {
+            endIndex = dateTimeStr.length();
+        }
+
+        // Берем только первые 3 цифры после точки
+        String fractionalPart = dateTimeStr.substring(dotIndex + 1, endIndex);
+        if (fractionalPart.length() > 3) {
+            fractionalPart = fractionalPart.substring(0, 3);
+        }
+
+        // Собираем обратно
+        return dateTimeStr.substring(0, dotIndex + 1) + fractionalPart +
+                (endIndex < dateTimeStr.length() ? dateTimeStr.substring(endIndex) : "");
+    }
+
+    private Instant calculateExpiresAt(Map<String, Object> responseBody) {
+        try {
+            Instant createdAt = parseDateTime((String) responseBody.get("created_at"));
+            // Добавляем 90 дней к дате создания
+            return createdAt.plus(90, java.time.temporal.ChronoUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("Failed to calculate expiresAt, using default 90 days");
+            return Instant.now().plus(90, java.time.temporal.ChronoUnit.DAYS);
+        }
+    }
+
+    public List<Account> fetchAccounts(Bank bank, String teamToken, String consentId, String clientId) {
+        String url = bank.getBaseUrl() + "/accounts?client_id=" + clientId;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(teamToken);
         headers.set("X-Requesting-Bank", "team214");
         headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
 
         try {
             ResponseEntity<Map> response = restTemplate.exchange(
                     url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
-                List<Map<String, Object>> accountsData = (List<Map<String, Object>>) data.get("account");
+                Map<String, Object> responseBody = response.getBody();
+                log.info("Accounts response: {}", responseBody);
 
-                List<Account> accounts = new ArrayList<>();
+                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
+                if (data != null) {
+                    List<Map<String, Object>> accountsData = (List<Map<String, Object>>) data.get("account");
 
-                for (Map<String, Object> accountData : accountsData) {
-                    Account account = new Account();
-                    account.setExternalAccountId((String) accountData.get("accountId"));
-                    account.setAccountType((String) accountData.get("accountType"));
-                    account.setAccountSubType((String) accountData.get("accountSubType"));
-                    account.setCurrency((String) accountData.get("currency"));
-                    account.setNickname((String) accountData.get("nickname"));
-                    account.setStatus((String) accountData.get("status"));
+                    List<Account> accounts = new ArrayList<>();
+                    for (Map<String, Object> accountData : accountsData) {
+                        Account account = new Account();
+                        account.setExternalAccountId((String) accountData.get("accountId"));
+                        account.setAccountType((String) accountData.get("accountType"));
+                        account.setAccountSubType((String) accountData.get("accountSubType"));
+                        account.setCurrency((String) accountData.get("currency"));
+                        account.setNickname((String) accountData.get("nickname"));
+                        account.setStatus((String) accountData.get("status"));
 
-                    // Парсим openingDate если есть
-                    if (accountData.get("openingDate") != null) {
-                        account.setOpeningDate(LocalDate.parse((String) accountData.get("openingDate")));
+                        // Парсим openingDate
+                        if (accountData.get("openingDate") != null) {
+                            try {
+                                account.setOpeningDate(LocalDate.parse((String) accountData.get("openingDate")));
+                            } catch (Exception e) {
+                                log.warn("Failed to parse openingDate: {}", accountData.get("openingDate"));
+                            }
+                        }
+
+                        // ВНИМАНИЕ: account - это список, а не Map!
+                        List<Map<String, Object>> accountDetailsList = (List<Map<String, Object>>) accountData.get("account");
+                        if (accountDetailsList != null && !accountDetailsList.isEmpty()) {
+                            Map<String, Object> accountDetails = accountDetailsList.get(0); // берем первый элемент
+                            account.setAccountNumber((String) accountDetails.get("identification"));
+                            account.setAccountName((String) accountDetails.get("name"));
+                        }
+
+                        account.setLastSyncAt(Instant.now());
+                        accounts.add(account);
                     }
 
-                    // Получаем номер счета из вложенной структуры
-                    Map<String, Object> accountDetails = (Map<String, Object>) accountData.get("account");
-                    if (accountDetails != null) {
-                        account.setAccountNumber((String) accountDetails.get("identification"));
-                    }
-
-                    account.setLastSyncAt(Instant.now());
-                    accounts.add(account);
+                    log.info("Fetched {} accounts for consent {}", accounts.size(), consentId);
+                    return accounts;
                 }
-
-                log.info("Fetched {} accounts for consent {}", accounts.size(), consentId);
-                return accounts;
             }
         } catch (Exception e) {
-            log.error("Failed to fetch accounts for consent {}: {}", consentId, e.getMessage());
+            log.error("Failed to fetch accounts for consent {}: {}", consentId, e.getMessage(), e);
         }
 
         return Collections.emptyList();

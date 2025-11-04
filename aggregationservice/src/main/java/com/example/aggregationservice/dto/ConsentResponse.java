@@ -13,4 +13,7 @@ public class ConsentResponse {
     private String consentId;
     private String[] permissions;
     private java.time.Instant expiresAt;
+    private java.time.Instant createdAt;
+    private String status;
+    private Boolean autoApproved;
 }

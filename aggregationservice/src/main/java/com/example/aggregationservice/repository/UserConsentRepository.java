@@ -12,9 +12,8 @@ import java.util.UUID;
 @Repository
 public interface UserConsentRepository extends JpaRepository<UserConsent, UUID> {
 
-    List<UserConsent> findByUserId(UUID userId);
-
-    Optional<UserConsent> findByUserIdAndBankId(UUID userId, UUID bankId);
+    List<UserConsent> findByBankClientId(String bankClientId);
+    Optional<UserConsent> findByBankClientIdAndBankId(String bankClientId, UUID bankId);
 
     Optional<UserConsent> findByConsentId(String consentId);
 }

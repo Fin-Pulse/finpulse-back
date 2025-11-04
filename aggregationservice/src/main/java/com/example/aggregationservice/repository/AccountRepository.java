@@ -14,6 +14,6 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     List<Account> findByUserConsentId(UUID userConsentId);
 
     @Query("SELECT COUNT(a) FROM Account a WHERE a.userConsentId IN " +
-            "(SELECT uc.id FROM UserConsent uc WHERE uc.userId = :userId)")
-    int countAccountsByUserId(UUID userId);
+            "(SELECT uc.id FROM UserConsent uc WHERE uc.bankClientId = :bankClientId)")
+    int countAccountsByBankClientId(String bankClientId);
 }

@@ -19,11 +19,11 @@ public class UserVerificationController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{consentId}/link-user/{userId}")
+    @PostMapping("/{consentId}/link-client/{bankClientId}")
     public ResponseEntity<Void> linkUserToConsent(
             @PathVariable String consentId,
-            @PathVariable String userId) {
-        userVerificationService.linkUserToConsent(consentId, userId);
+            @PathVariable String bankClientId) {  // меняем userId на bankClientId
+        userVerificationService.linkUserToConsent(consentId, bankClientId);
         return ResponseEntity.ok().build();
     }
 }

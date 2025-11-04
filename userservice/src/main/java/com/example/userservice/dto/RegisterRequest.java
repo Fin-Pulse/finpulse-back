@@ -1,5 +1,6 @@
 package com.example.userservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +17,7 @@ public class RegisterRequest {
     private String password;
 
     @NotBlank
+    @JsonProperty("bank_client_id")
     private String clientId;
 
     private String phone;
