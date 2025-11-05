@@ -40,6 +40,18 @@ jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForHackathon123}
   expiration: 86400000
 
+aggregation:
+  service:
+    url: http://aggregationservice:8082
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 30000
+        loggerLevel: basic
+
 logging:
   level:
     com.example.userservice: DEBUG

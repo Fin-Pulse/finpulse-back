@@ -26,6 +26,7 @@ public class UserVerificationService {
     private final UserConsentRepository userConsentRepository;
     private final AccountRepository accountRepository;
     private final ConsentEncryptionService encryptionService;
+    private final BalanceService balanceService;
 
     @Transactional
     public BankVerifyResponse verifyClient(String bankClientId) {
@@ -116,6 +117,18 @@ public class UserVerificationService {
             } catch (Exception e) {
                 log.error("Error verifying client {} in bank {}: {}",
                         bankClientId, bank.getCode(), e.getMessage());
+            }
+        }
+
+        // 🔥 ДОБАВЛЯЕМ ВЫЗОВ БАЛАНСОВ ПОСЛЕ ЗАГРУЗКИ СЧЕТОВ
+        if (!allAccounts.isEmpty()) {
+            try {
+                log.info("🔄 Loading balances for {} accounts of client {}", allAccounts.size(), bankClientId);
+                balanceService.updateBalancesForUser(bankClientId);
+                log.info("✅ Balances loaded successfully for client {}", bankClientId);
+            } catch (Exception e) {
+                log.warn("⚠️ Failed to load balances for client {}: {}", bankClientId, e.getMessage());
+                // Не прерываем процесс, т.к. счета уже загружены
             }
         }
 

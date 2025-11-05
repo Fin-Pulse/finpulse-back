@@ -24,4 +24,11 @@ public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UU
 
     @Query("SELECT st FROM ScheduledTask st WHERE st.taskType = :taskType AND st.status = 'PENDING'")
     List<ScheduledTask> findByTypeAndStatus(@Param("taskType") String taskType, @Param("status") String status);
+
+    List<ScheduledTask> findByTaskTypeAndTaskName(String taskType, String taskName);
+
+    @Modifying
+    @Query("DELETE FROM ScheduledTask st WHERE st.taskType = :taskType AND st.taskName LIKE :taskNamePattern")
+    void deleteByTaskTypeAndNamePattern(@Param("taskType") String taskType,
+                                        @Param("taskNamePattern") String taskNamePattern);
 }

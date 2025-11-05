@@ -1,5 +1,6 @@
 package com.example.userservice.entity;
 
+import com.example.userservice.entity.enums.VerificationStatus;
 import lombok.Data;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -30,6 +31,9 @@ public class User {
 
     @Column(name = "is_verified")
     private boolean isVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
     @Column(name="bank_client_id", nullable = false)
     private String bankClientId;

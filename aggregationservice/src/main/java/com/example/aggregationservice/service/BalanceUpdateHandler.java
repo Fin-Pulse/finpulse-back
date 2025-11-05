@@ -39,4 +39,8 @@ public class BalanceUpdateHandler implements TaskHandler {
             throw new RuntimeException("Balance update task failed", e);
         }
     }
+    @Override
+    public boolean shouldDeleteAfterSuccess() {
+        return false;
+    }
 }
