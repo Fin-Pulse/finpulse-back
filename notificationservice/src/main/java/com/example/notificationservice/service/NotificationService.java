@@ -4,13 +4,16 @@ import com.example.notificationservice.dto.CreateNotificationRequest;
 import com.example.notificationservice.model.Notification;
 import com.example.notificationservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -23,6 +26,7 @@ public class NotificationService {
         return notificationRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId);
     }
 
+    @Transactional
     public Notification markAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found with id: " + notificationId));
@@ -30,6 +34,7 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
+    @Transactional
     public Notification createNotification(CreateNotificationRequest request) {
         Notification notification = new Notification();
         notification.setUserId(request.getUserId());

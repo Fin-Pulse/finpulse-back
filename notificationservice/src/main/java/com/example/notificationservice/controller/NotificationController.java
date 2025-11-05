@@ -2,6 +2,7 @@ package com.example.notificationservice.controller;
 
 import com.example.notificationservice.dto.CreateNotificationRequest;
 import com.example.notificationservice.model.Notification;
+import com.example.notificationservice.service.NotificationCoordinator;
 import com.example.notificationservice.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,8 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationCoordinator notificationCoordinator;
+
 
     @Operation(summary = "Получить все уведомления пользователя",
             description = "Возвращает список всех уведомлений пользователя, отсортированных по дате создания (новые сначала)")
@@ -79,8 +82,9 @@ public class NotificationController {
         return ResponseEntity.ok(notification);
     }
 
+
     @Operation(summary = "Создать новое уведомление",
-            description = "Создает новое уведомление для пользователя")
+            description = "Создает новое уведомление для пользователя и отправляет через WebSocket")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Уведомление успешно создано"),
             @ApiResponse(responseCode = "400", description = "Неверные данные запроса")
@@ -89,7 +93,7 @@ public class NotificationController {
     public ResponseEntity<Notification> createNotification(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Данные для создания уведомления")
             @RequestBody CreateNotificationRequest request) {
-        Notification notification = notificationService.createNotification(request);
+        Notification notification = notificationCoordinator.createNotificationWithWebSocket(request);
         return ResponseEntity.ok(notification);
     }
 }

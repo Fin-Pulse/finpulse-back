@@ -2,6 +2,8 @@ server:
   port: 8084
 
 spring:
+  websocket:
+    enabled: true
   application:
     name: notificationservice
   datasource:
