@@ -8,6 +8,7 @@
         <artifactId>finpulse-back</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
+
     </parent>
 
     <artifactId>aggregationservice</artifactId>
@@ -17,6 +18,11 @@
 
     <dependencies>
         <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

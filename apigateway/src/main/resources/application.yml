@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: apigateway
+  # Отключаем автоконфигурацию базы данных для apigateway
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+
+# Временно отключаем security для разработки
+spring.security.oauth2.resourceserver.jwt.issuer-uri: none
+
+logging:
+  level:
+    com.example.apigateway: INFO
