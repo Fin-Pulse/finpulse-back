@@ -32,6 +32,9 @@ spring:
       group-id: aggregation-service
       auto-offset-reset: earliest
 
+encryption:
+  secret-key: "2C9KrwifASfYC67m"
+
 bank:
   api:
     base-url: https://vbank.open.bankingapi.ru
