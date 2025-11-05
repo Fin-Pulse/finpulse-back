@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-class PendingBank {
+public class PendingBank {
     private String bankCode;
     private String bankName;
     private String requestId;

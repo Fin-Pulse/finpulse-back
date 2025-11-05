@@ -11,4 +11,6 @@ public class AuthResponse {
     private Long expiresIn;
     private String tokenType;
     private UserProfile user;
+    private BankVerificationResult bankVerification;
+
 }

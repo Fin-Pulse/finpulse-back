@@ -1,5 +1,6 @@
 package com.example.userservice.dto;
 
+import com.example.userservice.entity.enums.VerificationStatus;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -13,4 +14,5 @@ public class UserProfile {
     private String bankClientId;
     private boolean isVerified;
     private LocalDateTime createdAt;
+    private VerificationStatus verificationStatus;
 }

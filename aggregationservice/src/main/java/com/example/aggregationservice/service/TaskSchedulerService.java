@@ -63,9 +63,15 @@ public class TaskSchedulerService {
                     log.info("🎯 Executing task: {} [{}]", task.getTaskName(), task.getTaskType());
                     handler.handle(task);
 
-                    task.setStatus("COMPLETED");
-                    taskRepository.save(task);
-                    log.info("✅ Task completed: {}", task.getTaskName());
+                    // 🔥 УПРАВЛЯЕМ УДАЛЕНИЕМ ЧЕРЕЗ ФЛАГ
+                    if (handler.shouldDeleteAfterSuccess()) {
+                        taskRepository.delete(task);
+                        log.info("🗑️ Task deleted after successful execution: {}", task.getTaskName());
+                    } else {
+                        // Для периодических задач просто сохраняем
+                        taskRepository.save(task);
+                        log.info("✅ Task completed (kept for scheduling): {}", task.getTaskName());
+                    }
 
                 } catch (Exception e) {
                     log.error("❌ Task failed: {}", task.getTaskName(), e);
@@ -90,5 +96,32 @@ public class TaskSchedulerService {
         }
 
         taskRepository.save(task);
+    }
+
+    /**
+     * Удаляет задачу по ID
+     */
+    @Transactional
+    public void deleteTask(UUID taskId) {
+        try {
+            taskRepository.deleteById(taskId);
+            log.debug("🗑️ Deleted task with ID: {}", taskId);
+        } catch (Exception e) {
+            log.error("Failed to delete task {}: {}", taskId, e.getMessage());
+        }
+    }
+
+    /**
+     * Удаляет задачи по типу и имени
+     */
+    @Transactional
+    public void deleteTasksByTypeAndName(String taskType, String taskName) {
+        try {
+            List<ScheduledTask> tasks = taskRepository.findByTaskTypeAndTaskName(taskType, taskName);
+            taskRepository.deleteAll(tasks);
+            log.info("🗑️ Deleted {} tasks of type {} and name {}", tasks.size(), taskType, taskName);
+        } catch (Exception e) {
+            log.error("Failed to delete tasks by type and name: {}", e.getMessage());
+        }
     }
 }

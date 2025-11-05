@@ -28,4 +28,6 @@ public interface UserConsentRepository extends JpaRepository<UserConsent, UUID> 
 
     @Query("SELECT DISTINCT uc.bankClientId FROM UserConsent uc WHERE uc.status = 'ACTIVE'")
     List<String> findDistinctBankClientIdsWithActiveConsents();
+
+    Optional<UserConsent> findByBankClientIdAndBankIdAndStatus(String bankClientId, UUID bankId, ConsentStatus status);
 }

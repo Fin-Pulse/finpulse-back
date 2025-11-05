@@ -39,8 +39,9 @@ public class SecurityConfig {
 
                         // РАЗРЕШИ CORS ДЛЯ ВСЕХ API
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/bank/users/**").permitAll()
                         .requestMatchers("/api/bank/auth/**").permitAll()
-                        .requestMatchers("/api/bank/users/me").authenticated()
+                        //.requestMatchers("/api/bank/users/me").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

@@ -1,6 +1,7 @@
 package com.example.aggregationservice.service;
 
 import com.example.aggregationservice.dto.BankVerifyResponse;
+import com.example.aggregationservice.dto.ConsentResponse;
 import com.example.aggregationservice.dto.PendingBank;
 import com.example.aggregationservice.model.Account;
 import com.example.aggregationservice.model.Bank;
@@ -30,6 +31,7 @@ public class ConsentStatusService {
     private final BankApiClient bankApiClient;
     private final AccountRepository accountRepository;
     private final ConsentEncryptionService encryptionService;
+    private final BalanceService balanceService;
 
     /**
      * Проверяет статус pending-согласий и обновляет их при одобрении
@@ -127,5 +129,51 @@ public class ConsentStatusService {
                 .pendingBanks(pendingBanks)
                 .requiresUserAction(!pendingBanks.isEmpty())
                 .build();
+    }
+    /**
+     * Обрабатывает approved согласие и загружает счета
+     */
+    @Transactional
+    public void processApprovedConsent(String clientId, Bank bank, ConsentResponse consentResponse) {
+        try {
+            // Находим pending согласие
+            UserConsent consent = userConsentRepository.findByBankClientIdAndBankIdAndStatus(
+                            clientId, bank.getId(), ConsentStatus.PENDING)
+                    .orElseThrow(() -> new RuntimeException("Pending consent not found"));
+
+            // Обновляем согласие
+            String encryptedConsentId = encryptionService.encrypt(consentResponse.getConsentId());
+            consent.setConsentId(encryptedConsentId);
+            consent.setStatus(ConsentStatus.ACTIVE);
+            consent.setExpiresAt(consentResponse.getExpiresAt());
+            consent.setUpdatedAt(Instant.now());
+
+            userConsentRepository.save(consent);
+
+            // Загружаем счета
+            String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
+            var accounts = bankApiClient.fetchAccounts(bank, bankAuthService.getTeamToken(),
+                    decryptedConsentId, clientId);
+
+            for (Account account : accounts) {
+                account.setUserConsentId(consent.getId());
+                accountRepository.save(account);
+            }
+
+            balanceService.updateBalancesForUser(clientId);
+
+            log.info("✅ Processed approved consent for client {} in bank {}, loaded {} accounts",
+                    clientId, bank.getCode(), accounts.size());
+
+
+
+            // 🎯 Тут можно отправить уведомление
+            // notificationService.sendAccountsLoaded(clientId, bank.getCode(), accounts.size());
+
+        } catch (Exception e) {
+            log.error("Error processing approved consent for client {} in bank {}: {}",
+                    clientId, bank.getCode(), e.getMessage());
+            throw new RuntimeException("Failed to process approved consent", e);
+        }
     }
 }
