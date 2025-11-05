@@ -13,7 +13,13 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     List<Account> findByUserConsentId(UUID userConsentId);
 
+    List<Account> findByUserConsentIdIn(List<UUID> userConsentIds);
+
     @Query("SELECT COUNT(a) FROM Account a WHERE a.userConsentId IN " +
             "(SELECT uc.id FROM UserConsent uc WHERE uc.bankClientId = :bankClientId)")
     int countAccountsByBankClientId(String bankClientId);
+
+    @Query("SELECT a FROM Account a WHERE a.userConsentId IN " +
+            "(SELECT uc.id FROM UserConsent uc WHERE uc.bankClientId = :bankClientId)")
+    List<Account> findByBankClientId(String bankClientId);
 }

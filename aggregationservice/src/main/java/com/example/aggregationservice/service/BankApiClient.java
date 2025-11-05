@@ -48,12 +48,15 @@ public class BankApiClient {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
 
-                String consentId = (String) responseBody.get("consent_id");
                 String status = (String) responseBody.get("status");
+                String requestId = (String) responseBody.get("request_id");
 
-                if (consentId != null && "approved".equals(status)) {
-                    // Парсим все поля из ответа
+                if ("approved".equals(status)) {
+                    // Существующая логика для approved
+                    String consentId = (String) responseBody.get("consent_id");
+
                     ConsentResponse consentResponse = ConsentResponse.builder()
+                            .requestId(requestId)
                             .consentId(consentId)
                             .status(status)
                             .permissions(new String[]{"ReadAccountsDetail", "ReadBalances", "ReadTransactionsDetail"})
@@ -65,15 +68,25 @@ public class BankApiClient {
                     log.info("✅ Consent APPROVED for client {} in bank {}: {}", clientId, bank.getCode(), consentId);
                     return Optional.of(consentResponse);
 
-                } else {
-                    log.warn("❌ Consent not approved for client {} in bank {}. Status: {}, ConsentId: {}",
-                            clientId, bank.getCode(), status, consentId);
-                    return Optional.empty();
+                } else if ("pending".equals(status)) {
+                    // Новая логика для pending-согласий
+                    ConsentResponse consentResponse = ConsentResponse.builder()
+                            .requestId(requestId)
+                            .consentId(null) // consentId будет позже
+                            .status(status)
+                            .permissions(new String[]{"ReadAccountsDetail", "ReadBalances", "ReadTransactionsDetail"})
+                            .createdAt(parseDateTime((String) responseBody.get("created_at")))
+                            .expiresAt(null) // установится после одобрения
+                            .autoApproved(false)
+                            .build();
+
+                    log.info("⏳ Consent PENDING for client {} in bank {}: {}", clientId, bank.getCode(), requestId);
+                    return Optional.of(consentResponse);
                 }
             }
 
         } catch (Exception e) {
-            log.error("🚨 Consent request failed for {} in bank {}: {}", clientId, bank.getCode(), e.getMessage(), e);
+            log.error("Consent request failed for {} in bank {}: {}", clientId, bank.getCode(), e.getMessage());
         }
 
         return Optional.empty();
@@ -205,5 +218,80 @@ public class BankApiClient {
         }
 
         return Collections.emptyList();
+    }
+    public Optional<ConsentResponse> checkConsentStatus(Bank bank, String teamToken, String requestId) {
+        // Используем request_id как параметр в URL
+        String url = bank.getBaseUrl() + "/account-consents/" + requestId;
+
+        HttpHeaders headers = new HttpHeaders();
+        // Судя по документации - без аутентификации
+        headers.set("x-fapi-interaction-id", "team214");
+        headers.set("Accept", "application/json");
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+            log.info("🔍 Checking consent status for requestId: {}", requestId);
+            log.info("📡 Response status: {}", response.getStatusCode());
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                log.info("📦 Response body: {}", responseBody);
+
+                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
+                if (data != null) {
+                    String status = (String) data.get("status");
+                    String consentId = (String) data.get("consentId");
+
+                    log.info("🎯 Parsed - Status: {}, ConsentId: {}", status, consentId);
+
+                    // "Authorized" = approved в нашей системе
+                    if ("Authorized".equals(status) && consentId != null) {
+                        Instant expiresAt = Instant.parse((String) data.get("expirationDateTime"));
+
+                        ConsentResponse consentResponse = ConsentResponse.builder()
+                                .consentId(consentId)
+                                .status("approved") // приводим к нашему формату
+                                .requestId(requestId)
+                                .expiresAt(expiresAt)
+                                .build();
+
+                        log.info("✅ Consent authorized! ConsentId: {}, Expires: {}", consentId, expiresAt);
+                        return Optional.of(consentResponse);
+                    } else {
+                        log.info("⏳ Consent status: {} for requestId: {}", status, requestId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error checking consent status for request {}: {}", requestId, e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    public Optional<Map<String, Object>> fetchAccountBalance(Bank bank, String teamToken,
+                                                             String consentId, String accountId) {
+        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/balances";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(teamToken);
+        headers.set("X-Requesting-Bank", "team214");
+        headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return Optional.of(response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch balance for account {}: {}", accountId, e.getMessage());
+        }
+
+        return Optional.empty();
     }
 }

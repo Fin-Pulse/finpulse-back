@@ -1,5 +1,6 @@
 package com.example.aggregationservice.model;
 
+import com.example.aggregationservice.model.enums.ConsentStatus;
 import lombok.Data;
 import jakarta.persistence.*;
 import java.time.Instant;
@@ -22,7 +23,12 @@ public class UserConsent {
     @Column(name = "consent_id")
     private String consentId;
 
-    private String status = "active";
+    @Column(name = "request_id")  // Добавим для отслеживания pending-согласий
+    private String requestId;
+
+    @Enumerated(EnumType.STRING)
+    private ConsentStatus status = ConsentStatus.PENDING;
+
     private String permissions;
 
     @Column(name = "expires_at")
