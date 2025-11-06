@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -48,5 +50,15 @@ public class UserController {
                     log.warn("❌ User not found for bankClientId: {}", bankClientId);
                     return ResponseEntity.notFound().build();
                 });
+    }
+    @GetMapping("/active-ids")
+    @Operation(summary = "Get all active user IDs", description = "For internal use by other services")
+    public ResponseEntity<List<UUID>> getAllActiveUserIds() {
+        log.info("🔍 Returning all active user IDs");
+
+        List<UUID> activeUserIds = userRepository.findActiveUserIds();
+
+        log.info("✅ Returning {} active user IDs", activeUserIds.size());
+        return ResponseEntity.ok(activeUserIds);
     }
 }
