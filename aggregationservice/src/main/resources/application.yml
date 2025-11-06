@@ -51,6 +51,9 @@ bank:
 notification:
   service:
     url: http://notificationservice:8084
+user:
+  service:
+    url: http://userservice:8081
 
 logging:
   level:

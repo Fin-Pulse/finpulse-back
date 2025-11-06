@@ -1,18 +1,22 @@
 package com.example.userservice.controller;
 
 import com.example.userservice.dto.UserProfile;
+import com.example.userservice.repository.UserRepository;
 import com.example.userservice.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/bank/users")
 @RequiredArgsConstructor
@@ -20,6 +24,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
     @GetMapping("/me")
     @Operation(summary = "Получить профиль", description = "Возвращает данные текущего пользователя")
@@ -28,5 +33,20 @@ public class UserController {
             @AuthenticationPrincipal UUID userId) {
         UserProfile profile = userService.getUserProfile(userId);
         return ResponseEntity.ok(profile);
+    }
+
+    @GetMapping("/by-bank-client-id/{bankClientId}")
+    public ResponseEntity<UUID> getUserIdByBankClientId(@PathVariable String bankClientId) {
+        log.info("🔍 Looking up userId for bankClientId: {}", bankClientId);
+
+        return userRepository.findByBankClientId(bankClientId)
+                .map(user -> {
+                    log.info("✅ Found user: {} -> {}", bankClientId, user.getId());
+                    return ResponseEntity.ok(user.getId());
+                })
+                .orElseGet(() -> {
+                    log.warn("❌ User not found for bankClientId: {}", bankClientId);
+                    return ResponseEntity.notFound().build();
+                });
     }
 }
