@@ -18,3 +18,22 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8082/api/actuator/health || exit 1
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+#FROM --platform=$TARGETPLATFORM eclipse-temurin:17-jdk-jammy
+#
+#WORKDIR /app
+#
+## Ubuntu команды (apt-get вместо apk)
+#RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+#
+#COPY ./aggregationservice/target/aggregationservice-0.0.1-SNAPSHOT.jar app.jar
+#
+#RUN groupadd -r spring && useradd -r -g spring spring
+#USER spring
+#
+#EXPOSE 8082
+#
+#HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#    CMD curl -f http://localhost:8082/api/actuator/health || exit 1
+#
+#ENTRYPOINT ["java", "-jar", "/app/app.jar"]

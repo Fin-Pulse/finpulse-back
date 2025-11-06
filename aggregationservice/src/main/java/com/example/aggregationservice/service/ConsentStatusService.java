@@ -32,6 +32,7 @@ public class ConsentStatusService {
     private final AccountRepository accountRepository;
     private final ConsentEncryptionService encryptionService;
     private final BalanceService balanceService;
+    private final NotificationService notificationService;
 
     /**
      * Проверяет статус pending-согласий и обновляет их при одобрении
@@ -165,7 +166,7 @@ public class ConsentStatusService {
             log.info("✅ Processed approved consent for client {} in bank {}, loaded {} accounts",
                     clientId, bank.getCode(), accounts.size());
 
-
+            notificationService.sendAccountsLoadedNotification(clientId, bank.getCode(), accounts.size());
 
             // 🎯 Тут можно отправить уведомление
             // notificationService.sendAccountsLoaded(clientId, bank.getCode(), accounts.size());
@@ -173,6 +174,7 @@ public class ConsentStatusService {
         } catch (Exception e) {
             log.error("Error processing approved consent for client {} in bank {}: {}",
                     clientId, bank.getCode(), e.getMessage());
+            notificationService.sendVerificationErrorNotification(clientId, bank.getCode(), e.getMessage());
             throw new RuntimeException("Failed to process approved consent", e);
         }
     }

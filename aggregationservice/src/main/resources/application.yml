@@ -31,6 +31,12 @@ spring:
     consumer:
       group-id: aggregation-service
       auto-offset-reset: earliest
+  cloud:
+    stream:
+      bindings:
+        userRegistered-in-0:
+          destination: user-registered-topic
+          group: aggregation-service
 
 encryption:
   secret-key: "2C9KrwifASfYC67m"
@@ -42,7 +48,22 @@ bank:
     client-secret: ${BANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
     token-endpoint: /auth/bank-token
 
+notification:
+  service:
+    url: http://notificationservice:8084
+user:
+  service:
+    url: http://userservice:8081
+
 logging:
   level:
     com.example.aggregationservice: DEBUG
     org.springframework.web.client: DEBUG
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: basic
