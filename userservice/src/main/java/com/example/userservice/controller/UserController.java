@@ -61,4 +61,11 @@ public class UserController {
         log.info("✅ Returning {} active user IDs", activeUserIds.size());
         return ResponseEntity.ok(activeUserIds);
     }
+
+    @GetMapping("/{userId}/bank-client-id")
+    public ResponseEntity<String> getBankClientId(@PathVariable UUID userId) {
+        return userRepository.findById(userId)
+                .map(user -> ResponseEntity.ok(user.getBankClientId()))
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

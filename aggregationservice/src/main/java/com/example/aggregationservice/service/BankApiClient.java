@@ -3,14 +3,17 @@ package com.example.aggregationservice.service;
 import com.example.aggregationservice.model.Bank;
 import com.example.aggregationservice.dto.*;
 import com.example.aggregationservice.model.Account;
+import com.example.aggregationservice.model.Transaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -20,6 +23,27 @@ import java.util.*;
 public class BankApiClient {
 
     private final RestTemplate restTemplate;
+
+    public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
+                                                    LocalDateTime fromDate, LocalDateTime toDate) {
+        log.info("🏦 Fetching transactions for account {} (client: {}) from {} to {}",
+                accountId, bankClientId, fromDate, toDate);
+
+        // TODO: Реализовать вызов реального Bank API
+
+        // Заглушка для тестирования
+        return List.of(
+                Transaction.builder()
+                        .externalTransactionId("TX_" + System.currentTimeMillis())
+                        .amount(new BigDecimal("100.50"))
+                        .currency("RUB")
+                        .creditDebitIndicator("CREDIT")
+                        .status("Booked")
+                        .bookingDate(LocalDateTime.now())
+                        .transactionInformation("Test transaction from Bank API")
+                        .build()
+        );
+    }
 
     public Optional<ConsentResponse> requestConsent(Bank bank, String teamToken, String clientId) {
         String url = bank.getBaseUrl() + "/account-consents/request";
