@@ -14,10 +14,10 @@ public interface UserServiceClient {
     @GetMapping("/api/bank/users/by-bank-client-id/{bankClientId}")
     ResponseEntity<UUID> getUserIdByBankClientId(@PathVariable String bankClientId);
 
-    @GetMapping("/api/internal/users/active-ids")
+    @GetMapping("/api/bank/users/active-ids")
     List<UUID> getAllActiveUserIds();
 
-    @GetMapping("/api/internal/users/{userId}/bank-client-id")
+    @GetMapping("/api/bank/users/{userId}/bank-client-id")
     String getBankClientId(@PathVariable UUID userId);
 
 

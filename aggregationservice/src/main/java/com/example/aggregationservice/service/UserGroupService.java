@@ -3,8 +3,9 @@ package com.example.aggregationservice.service;
 
 import com.example.aggregationservice.client.UserServiceClient;
 import com.example.aggregationservice.model.enums.TimeGroup;
-import lombok.RequiredArgsConstructor;
+import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,11 +16,16 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserGroupService {
 
     private final UserServiceClient userServiceClient;
     private final RedisTemplate<String, Object> redisTemplate;
+
+    public UserGroupService(UserServiceClient userServiceClient,
+                           @Qualifier("objectRedisTemplate") RedisTemplate<String, Object> redisTemplate) {
+        this.userServiceClient = userServiceClient;
+        this.redisTemplate = redisTemplate;
+    }
 
     private static final String USER_GROUP_KEY = "user_groups:%s";
     private static final String ALL_USERS_KEY = "all_active_users";
@@ -106,8 +112,15 @@ public class UserGroupService {
 
             log.info("✅ User groups cache refreshed");
 
+        } catch (FeignException.Forbidden e) {
+            log.error("❌ Access forbidden (403) when calling UserService. Check if endpoint requires authentication or internal access configuration. URL: {}", e.request().url(), e);
+            throw e; // Пробрасываем дальше, чтобы вызывающий код мог обработать
+        } catch (FeignException e) {
+            log.error("❌ Feign error when calling UserService. Status: {}, URL: {}", e.status(), e.request() != null ? e.request().url() : "unknown", e);
+            throw e;
         } catch (Exception e) {
             log.error("❌ Failed to refresh user groups cache", e);
+            throw e; // Пробрасываем, чтобы вызывающий код мог обработать
         }
     }
 }

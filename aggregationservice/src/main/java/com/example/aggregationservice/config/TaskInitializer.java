@@ -5,8 +5,8 @@ import com.example.aggregationservice.service.TaskSchedulerService;
 import com.example.aggregationservice.service.UserGroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -15,18 +15,23 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class TaskInitializer {
+public class TaskInitializer implements ApplicationRunner {
 
     private final TaskSchedulerService taskSchedulerService;
     private final UserGroupService userGroupService;
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void initializeTasks() {
+    @Override
+    public void run(ApplicationArguments args) {
         try {
             log.info("🚀 Initializing all scheduled tasks...");
 
-            // 🔥 Сначала обновляем кэш пользователей
-            userGroupService.refreshUserGroupsCache();
+            // 🔥 Сначала обновляем кэш пользователей (не критично, если не получится)
+            try {
+                userGroupService.refreshUserGroupsCache();
+            } catch (Exception e) {
+                log.warn("⚠️ Failed to refresh user groups cache during initialization: {}. Will retry later.", e.getMessage());
+                // Не прерываем инициализацию задач, кэш обновится позже
+            }
 
             // 🔥 1. Еженедельное обновление балансов - следующее воскресенье в 2:00
             Instant nextSunday2AM = calculateNextSunday2AM();

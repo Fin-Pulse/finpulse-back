@@ -1,6 +1,8 @@
 package com.example.notificationservice.service;
 
 import com.example.notificationservice.dto.NotificationDto;
+import com.example.notificationservice.exception.NotificationAccessDeniedException;
+import com.example.notificationservice.exception.NotificationNotFoundException;
 import com.example.notificationservice.model.Notification;
 import com.example.notificationservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +41,11 @@ public class WebSocketNotificationService {
     public void markAsReadAndNotify(UUID notificationId, UUID userId) {
         try {
             Notification notification = notificationRepository.findById(notificationId)
-                    .orElseThrow(() -> new RuntimeException("Notification not found with id: " + notificationId));
+                    .orElseThrow(() -> new NotificationNotFoundException(notificationId));
 
             // Проверяем, что уведомление принадлежит пользователю
             if (!notification.getUserId().equals(userId)) {
-                throw new RuntimeException("Notification does not belong to user");
+                throw new NotificationAccessDeniedException(notificationId, userId);
             }
 
             notification.setIsRead(true);

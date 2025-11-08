@@ -28,9 +28,11 @@ spring:
     port: 6379
   kafka:
     bootstrap-servers: kafka:9092
-    consumer:
-      group-id: aggregation-service
-      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    properties:
+      spring.json.trusted.packages: "com.example.aggregationservice.dto,com.example.*"
   cloud:
     stream:
       bindings:
@@ -54,6 +56,21 @@ notification:
 user:
   service:
     url: http://userservice:8081
+
+app:
+  scheduling:
+    transaction-export:
+      groups:
+        - name: GROUP_00_06
+          cron: "0 30 2 * * ?"
+        - name: GROUP_06_12
+          cron: "0 30 6 * * ?"
+        - name: GROUP_12_18
+          cron: "0 30 12 * * ?"
+        - name: GROUP_18_00
+          cron: "0 30 18 * * ?"
+      ml-analysis:
+        cron: "0 0 23 ? * SUN"
 
 logging:
   level:

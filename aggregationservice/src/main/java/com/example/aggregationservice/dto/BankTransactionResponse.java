@@ -8,12 +8,12 @@ import java.util.List;
 
 @Data
 public class BankTransactionResponse {
-    private Data data;
+    private Datas data;
     private Links links;
     private Meta meta;
 
     @Data
-    public static class Data {
+    public static class Datas {
         @JsonProperty("transaction")
         private List<BankTransaction> transactions;
     }

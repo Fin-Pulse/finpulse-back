@@ -23,6 +23,9 @@ public class Transaction {
     @Column(name = "account_id", nullable = false)
     private UUID accountId;
 
+    @Column(name = "bank_client_id", nullable = false) // 🔥 ДОБАВЛЕНО
+    private String bankClientId;
+
     @Column(name = "external_transaction_id", nullable = false)
     private String externalTransactionId;
 

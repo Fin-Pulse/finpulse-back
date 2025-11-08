@@ -63,7 +63,7 @@ public class TransactionExportHandler implements TaskHandler {
         log.info("🎉 Export completed: {} success", successCount);
     }
 
-    private void exportUserTransactions(UUID userId) {
+    public void exportUserTransactions(UUID userId) {
         // Получаем bankClientId для пользователя
         String bankClientId = userServiceClient.getBankClientId(userId);
         if (bankClientId == null) {
@@ -94,8 +94,8 @@ public class TransactionExportHandler implements TaskHandler {
                         today
                 );
 
-                // Сохраняем транзакции
-                int savedCount = saveTransactions(account.getId(), transactions);
+                // Сохраняем транзакции с bankClientId
+                int savedCount = saveTransactions(account.getId(), bankClientId, transactions);
                 totalTransactions += savedCount;
 
                 log.debug("✅ Account {}: saved {}/{} transactions",
@@ -113,7 +113,7 @@ public class TransactionExportHandler implements TaskHandler {
     /**
      * Сохраняет транзакции с проверкой на дубликаты
      */
-    private int saveTransactions(UUID accountId, List<Transaction> transactions) {
+    private int saveTransactions(UUID accountId, String bankClientId, List<Transaction> transactions) {
         int savedCount = 0;
 
         for (Transaction transaction : transactions) {
@@ -123,6 +123,7 @@ public class TransactionExportHandler implements TaskHandler {
                         accountId, transaction.getExternalTransactionId())) {
 
                     transaction.setAccountId(accountId);
+                    transaction.setBankClientId(bankClientId); // 🔥 УСТАНАВЛИВАЕМ bankClientId
                     transactionRepository.save(transaction);
                     savedCount++;
                 }

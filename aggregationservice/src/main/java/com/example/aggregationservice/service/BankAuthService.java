@@ -4,6 +4,8 @@ import com.example.aggregationservice.config.BankApiProperties;
 import com.example.aggregationservice.dto.BankTokenResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class BankAuthService {
+public class BankAuthService implements ApplicationRunner {
 
     private final RestTemplate restTemplate;
     private final RedisTemplate<String, String> redisTemplate;
@@ -178,15 +180,16 @@ public class BankAuthService {
 
     /**
      * Инициализация токена при старте приложения
+     * ApplicationRunner выполняется после полной инициализации всех бинов, включая Redis
      */
-    // @EventListener(ApplicationReadyEvent.class)
-    public void initializeTokenOnStartup() {
+    @Override
+    public void run(ApplicationArguments args) {
         log.info("Initializing bank token on application startup...");
         try {
             refreshAndCacheToken();
             log.info("Bank token initialized successfully");
         } catch (Exception e) {
-            log.error("Failed to initialize bank token on startup: {}", e.getMessage());
+            log.error("Failed to initialize bank token on startup: {}. Token will be fetched on first request.", e.getMessage());
         }
     }
 }

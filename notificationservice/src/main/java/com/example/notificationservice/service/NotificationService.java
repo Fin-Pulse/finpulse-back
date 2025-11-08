@@ -1,6 +1,7 @@
 package com.example.notificationservice.service;
 
 import com.example.notificationservice.dto.CreateNotificationRequest;
+import com.example.notificationservice.exception.NotificationNotFoundException;
 import com.example.notificationservice.model.Notification;
 import com.example.notificationservice.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class NotificationService {
     @Transactional
     public Notification markAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found with id: " + notificationId));
+                .orElseThrow(() -> new NotificationNotFoundException(notificationId));
         notification.setIsRead(true);
         return notificationRepository.save(notification);
     }
