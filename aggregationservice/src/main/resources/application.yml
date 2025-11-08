@@ -31,6 +31,13 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: aggregation-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.aggregationservice.dto,com.example.*"
+        spring.json.type.mapping: userRegisteredEvent:com.example.aggregationservice.dto.UserRegisteredEvent
     properties:
       spring.json.trusted.packages: "com.example.aggregationservice.dto,com.example.*"
   cloud:

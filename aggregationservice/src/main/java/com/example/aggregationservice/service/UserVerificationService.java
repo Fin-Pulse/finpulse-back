@@ -1,12 +1,16 @@
 package com.example.aggregationservice.service;
 
+import com.example.aggregationservice.client.UserServiceClient;
 import com.example.aggregationservice.dto.BankVerifyResponse;
 import com.example.aggregationservice.dto.PendingBank;
+import com.example.aggregationservice.dto.UserForecastUpdateEvent;
 import com.example.aggregationservice.model.*;
 import com.example.aggregationservice.model.enums.*;
 import com.example.aggregationservice.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +31,9 @@ public class UserVerificationService {
     private final AccountRepository accountRepository;
     private final ConsentEncryptionService encryptionService;
     private final BalanceService balanceService;
+    private final TransactionService transactionService;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final UserServiceClient userServiceClient;
 
     @Transactional
     public BankVerifyResponse verifyClient(String bankClientId) {
@@ -83,7 +90,7 @@ public class UserVerificationService {
                     continue;
                 }
 
-                // Логика для approved-согласий (существующий код)
+                // Логика для approved-согласий
                 String encryptedConsentId = encryptionService.encrypt(consentResponse.getConsentId());
 
                 UserConsent consent = new UserConsent();
@@ -120,15 +127,24 @@ public class UserVerificationService {
             }
         }
 
-        // 🔥 ДОБАВЛЯЕМ ВЫЗОВ БАЛАНСОВ ПОСЛЕ ЗАГРУЗКИ СЧЕТОВ
+        // ВЫГРУЖАЕМ БАЛАНСЫ И ТРАНЗАКЦИИ ЕСЛИ ЕСТЬ СЧЕТА
         if (!allAccounts.isEmpty()) {
             try {
                 log.info("🔄 Loading balances for {} accounts of client {}", allAccounts.size(), bankClientId);
                 balanceService.updateBalancesForUser(bankClientId);
                 log.info("✅ Balances loaded successfully for client {}", bankClientId);
+
+                // ВЫГРУЖАЕМ ИСТОРИЧЕСКИЕ ТРАНЗАКЦИИ (4 недели)
+                log.info("🔄 Loading historical transactions for client {}", bankClientId);
+                int transactionsCount = transactionService.exportHistoricalTransactions(bankClientId, 4);
+                log.info("✅ Historical transactions loaded successfully for client {}: {} transactions",
+                        bankClientId, transactionsCount);
+
+                // ОТПРАВЛЯЕМ В ML ДЛЯ ПРОГНОЗА
+                sendToMlService(bankClientId, "INITIAL_FORECAST");
+
             } catch (Exception e) {
-                log.warn("⚠️ Failed to load balances for client {}: {}", bankClientId, e.getMessage());
-                // Не прерываем процесс, т.к. счета уже загружены
+                log.warn("⚠️ Failed to load balances/transactions for client {}: {}", bankClientId, e.getMessage());
             }
         }
 
@@ -163,16 +179,48 @@ public class UserVerificationService {
                 .build();
     }
 
+    /**
+     * ОТПРАВЛЯЕМ СОБЫТИЕ В ML СЕРВИС
+     */
+    private void sendToMlService(String bankClientId, String analysisType) {
+        try {
+            // ✅ ПРАВИЛЬНО получаем userId по bankClientId через Feign client
+            ResponseEntity<UUID> response = userServiceClient.getUserIdByBankClientId(bankClientId);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                UUID userId = response.getBody();
+
+                UserForecastUpdateEvent event = UserForecastUpdateEvent.builder()
+                        .userId(userId)
+                        .bankClientId(bankClientId)
+                        .analysisType(analysisType)
+                        .timestamp(System.currentTimeMillis())
+                        .build();
+
+                kafkaTemplate.send("user_forecast_update", userId.toString(), event);
+
+                log.info("📤 Sent ML analysis task for user {} (bankClientId: {})", userId, bankClientId);
+
+            } else {
+                log.warn("⚠️ User not found for bankClientId: {}", bankClientId);
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send ML analysis task for bankClientId {}: {}", bankClientId, e.getMessage());
+        }
+    }
+
     // Метод для привязки пользователя к консенсу (вызывается из UserService)
     @Transactional
     public void linkUserToConsent(String consentId, String bankClientId) {
         userConsentRepository.findByConsentId(consentId).ifPresent(consent -> {
-            consent.setBankClientId(bankClientId);  // просто String, не UUID
+            consent.setBankClientId(bankClientId);
             consent.setUpdatedAt(Instant.now());
             userConsentRepository.save(consent);
             log.info("Linked bank client {} to consent {}", bankClientId, consentId);
         });
     }
+
     public List<Account> fetchAccountsWithDecryption(Bank bank, String teamToken, String encryptedConsentId, String clientId) {
         String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
         return bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, clientId);
