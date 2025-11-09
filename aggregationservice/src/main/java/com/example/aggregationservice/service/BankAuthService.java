@@ -14,8 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Date;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -27,60 +26,55 @@ public class BankAuthService implements ApplicationRunner {
     private final RedisTemplate<String, String> redisTemplate;
     private final BankApiProperties bankApiProperties;
 
-    private static final String REDIS_TOKEN_KEY = "bank:team:token";
-    private static final String REDIS_LOCK_KEY = "bank:token:refresh:lock";
+    private static final String REDIS_TOKEN_PREFIX = "bank:token:";
+    private static final String REDIS_LOCK_PREFIX = "bank:refresh:lock:";
 
-    /**
-     * Получает токен из Redis или обновляет его если нужно
-     */
-    public String getTeamToken() {
-        String token = redisTemplate.opsForValue().get(REDIS_TOKEN_KEY);
+    private static final List<String> SUPPORTED_BANKS = List.of("vbank", "abank", "sbank");
+
+    public String getBankToken(String bankCode) {
+        String redisKey = getTokenRedisKey(bankCode);
+        String token = redisTemplate.opsForValue().get(redisKey);
 
         if (token != null && !isTokenExpired(token)) {
-            log.debug("Using cached bank token from Redis");
             return token;
         }
 
-        log.info("Token missing or expired, refreshing...");
-        return refreshAndCacheToken();
+        log.info("Token missing or expired for bank: {}, refreshing...", bankCode);
+        return refreshAndCacheToken(bankCode);
     }
 
-    /**
-     * Принудительное обновление токена с distributed lock
-     */
-    public String refreshAndCacheToken() {
-        // Пытаемся взять distributed lock
+    public String refreshAndCacheToken(String bankCode) {
+        String lockKey = getLockRedisKey(bankCode);
+
         Boolean lockAcquired = redisTemplate.opsForValue()
-                .setIfAbsent(REDIS_LOCK_KEY, "locked", Duration.ofSeconds(30));
+                .setIfAbsent(lockKey, "locked", Duration.ofSeconds(30));
 
         if (Boolean.TRUE.equals(lockAcquired)) {
             try {
-                log.info("Acquired refresh lock, fetching new token from bank...");
-                BankTokenResponse tokenResponse = fetchNewTokenFromBank();
-                cacheToken(tokenResponse.getAccessToken());
+                BankTokenResponse tokenResponse = fetchNewTokenFromBank(bankCode);
+                cacheToken(bankCode, tokenResponse.getAccessToken());
                 return tokenResponse.getAccessToken();
             } finally {
-                redisTemplate.delete(REDIS_LOCK_KEY);
-                log.info("Released refresh lock");
+                redisTemplate.delete(lockKey);
+                log.info("Released refresh lock for bank: {}", bankCode);
             }
         } else {
-            log.info("Another instance is refreshing token, waiting...");
-            return waitForTokenRefresh();
+            return waitForTokenRefresh(bankCode);
         }
     }
 
-    /**
-     * Получение нового токена от банка
-     */
-    private BankTokenResponse fetchNewTokenFromBank() {
-        try {
-            String url = UriComponentsBuilder.fromHttpUrl(bankApiProperties.getBaseUrl())
-                    .path(bankApiProperties.getTokenEndpoint())
-                    .queryParam("client_id", bankApiProperties.getClientId())
-                    .queryParam("client_secret", bankApiProperties.getClientSecret())
-                    .toUriString();
+    private BankTokenResponse fetchNewTokenFromBank(String bankCode) {
+        BankApiProperties.BankConfig bankConfig = bankApiProperties.getBankConfig(bankCode);
+        if (bankConfig == null) {
+            throw new RuntimeException("Bank configuration not found for: " + bankCode);
+        }
 
-            log.info("Requesting new token from: {}", url.replace(bankApiProperties.getClientSecret(), "***"));
+        try {
+            String url = UriComponentsBuilder.fromHttpUrl(bankConfig.getBaseUrl())
+                    .path(bankConfig.getTokenEndpoint())
+                    .queryParam("client_id", bankConfig.getClientId())
+                    .queryParam("client_secret", bankConfig.getClientSecret())
+                    .toUriString();
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/x-www-form-urlencoded");
@@ -90,64 +84,90 @@ public class BankAuthService implements ApplicationRunner {
                     url, HttpMethod.POST, entity, BankTokenResponse.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                log.info("Successfully obtained new bank token");
                 return response.getBody();
             } else {
                 throw new RuntimeException("Bank API returned status: " + response.getStatusCode());
             }
 
         } catch (Exception e) {
-            log.error("Failed to fetch token from bank: {}", e.getMessage());
-            throw new RuntimeException("Bank token refresh failed", e);
+            log.error("Failed to fetch token from bank {}: {}", bankCode, e.getMessage());
+            throw new RuntimeException("Bank token refresh failed for: " + bankCode, e);
         }
     }
 
-    /**
-     * Кэширование токена в Redis
-     */
-    private void cacheToken(String token) {
+    private void cacheToken(String bankCode, String token) {
         try {
+            BankApiProperties.BankConfig bankConfig = bankApiProperties.getBankConfig(bankCode);
+            long ttlHours = bankConfig != null ? bankConfig.getTokenTtlHours() : 24;
+
             redisTemplate.opsForValue().set(
-                    REDIS_TOKEN_KEY,
+                    getTokenRedisKey(bankCode),
                     token,
-                    bankApiProperties.getTokenTtlHours(),
+                    ttlHours,
                     TimeUnit.HOURS
             );
-            log.info("Token cached in Redis for {} hours", bankApiProperties.getTokenTtlHours());
         } catch (Exception e) {
-            log.error("Failed to cache token in Redis: {}", e.getMessage());
-            throw new RuntimeException("Token caching failed", e);
+            log.error("Failed to cache token for bank {}: {}", bankCode, e.getMessage());
+            throw new RuntimeException("Token caching failed for: " + bankCode, e);
         }
     }
 
-    /**
-     * Ожидание пока другой инстанс обновит токен
-     */
-    private String waitForTokenRefresh() {
+    private String waitForTokenRefresh(String bankCode) {
         int maxAttempts = 10;
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             try {
-                Thread.sleep(2000); // Ждем 2 секунды
-                String token = redisTemplate.opsForValue().get(REDIS_TOKEN_KEY);
+                Thread.sleep(2000);
+                String token = redisTemplate.opsForValue().get(getTokenRedisKey(bankCode));
                 if (token != null && !isTokenExpired(token)) {
-                    log.info("Token refreshed by another instance, using it");
                     return token;
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Token refresh wait interrupted", e);
+                throw new RuntimeException("Token refresh wait interrupted for: " + bankCode, e);
             }
         }
-        throw new RuntimeException("Timeout waiting for token refresh");
+        throw new RuntimeException("Timeout waiting for token refresh for bank: " + bankCode);
     }
 
-    /**
-     * Проверка истечения срока действия JWT токена
-     */
+    @Scheduled(fixedRate = 82800000)
+    public void scheduledTokenRefresh() {
+        for (String bankCode : SUPPORTED_BANKS) {
+            try {
+                String token = redisTemplate.opsForValue().get(getTokenRedisKey(bankCode));
+                if (token == null || isTokenExpiringSoon(bankCode, token)) {
+                    refreshAndCacheToken(bankCode);
+                }
+            } catch (Exception e) {
+                log.error("Scheduled token refresh failed for bank {}: {}", bankCode, e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+
+        for (String bankCode : SUPPORTED_BANKS) {
+            try {
+                if (bankApiProperties.getBankConfig(bankCode) != null) {
+                    refreshAndCacheToken(bankCode);
+                }
+            } catch (Exception e) {
+                log.error("Failed to initialize bank token for {} on startup: {}. Token will be fetched on first request.",
+                        bankCode, e.getMessage());
+            }
+        }
+    }
+
+    private String getTokenRedisKey(String bankCode) {
+        return REDIS_TOKEN_PREFIX + bankCode;
+    }
+
+    private String getLockRedisKey(String bankCode) {
+        return REDIS_LOCK_PREFIX + bankCode;
+    }
+
     private boolean isTokenExpired(String token) {
         try {
-            // Простая проверка - в реальном приложении используй JWT библиотеку
-            // Здесь проверяем только базовые признаки
             return token == null || token.length() < 10;
         } catch (Exception e) {
             log.warn("Token validation error, considering expired: {}", e.getMessage());
@@ -155,41 +175,12 @@ public class BankAuthService implements ApplicationRunner {
         }
     }
 
-    /**
-     * Автообновление токена по расписанию
-     */
-    @Scheduled(fixedRate = 3600000) // Каждый час
-    public void scheduledTokenRefresh() {
-        try {
-            String token = redisTemplate.opsForValue().get(REDIS_TOKEN_KEY);
-            if (token == null || isTokenExpiringSoon(token)) {
-                log.info("Scheduled token refresh triggered");
-                refreshAndCacheToken();
-            }
-        } catch (Exception e) {
-            log.error("Scheduled token refresh failed: {}", e.getMessage());
-        }
+    private boolean isTokenExpiringSoon(String bankCode, String token) {
+        Long ttl = redisTemplate.getExpire(getTokenRedisKey(bankCode), TimeUnit.HOURS);
+        return ttl != null && ttl < 4;
     }
 
-    private boolean isTokenExpiringSoon(String token) {
-        // В реальном приложении проверяй expiry claim JWT
-        // Здесь просто обновляем если токен старше 20 часов
-        Long ttl = redisTemplate.getExpire(REDIS_TOKEN_KEY, TimeUnit.HOURS);
-        return ttl != null && ttl < 4; // Меньше 4 часов осталось
-    }
-
-    /**
-     * Инициализация токена при старте приложения
-     * ApplicationRunner выполняется после полной инициализации всех бинов, включая Redis
-     */
-    @Override
-    public void run(ApplicationArguments args) {
-        log.info("Initializing bank token on application startup...");
-        try {
-            refreshAndCacheToken();
-            log.info("Bank token initialized successfully");
-        } catch (Exception e) {
-            log.error("Failed to initialize bank token on startup: {}. Token will be fetched on first request.", e.getMessage());
-        }
+    public List<String> getSupportedBanks() {
+        return SUPPORTED_BANKS;
     }
 }

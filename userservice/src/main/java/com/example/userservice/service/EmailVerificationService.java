@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 public class EmailVerificationService {
 
     public void sendVerificationEmail(User user) {
-        // В реальном приложении здесь была бы отправка email
+        // В реальном приложении здесь будет отправка email
         // В хакатоне просто логируем ссылку для верификации
         String verificationUrl = String.format(
                 "http://localhost:8081/api/bank/auth/verify/%s",

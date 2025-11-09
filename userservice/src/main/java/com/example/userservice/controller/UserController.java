@@ -43,22 +43,17 @@ public class UserController {
 
         return userRepository.findByBankClientId(bankClientId)
                 .map(user -> {
-                    log.info("✅ Found user: {} -> {}", bankClientId, user.getId());
                     return ResponseEntity.ok(user.getId());
                 })
                 .orElseGet(() -> {
-                    log.warn("❌ User not found for bankClientId: {}", bankClientId);
+                    log.warn("User not found for bankClientId: {}", bankClientId);
                     return ResponseEntity.notFound().build();
                 });
     }
     @GetMapping("/active-ids")
     @Operation(summary = "Get all active user IDs", description = "For internal use by other services")
     public ResponseEntity<List<UUID>> getAllActiveUserIds() {
-        log.info("🔍 Returning all active user IDs");
-
         List<UUID> activeUserIds = userRepository.findActiveUserIds();
-
-        log.info("✅ Returning {} active user IDs", activeUserIds.size());
         return ResponseEntity.ok(activeUserIds);
     }
 

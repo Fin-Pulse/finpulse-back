@@ -25,11 +25,16 @@ public class KafkaTopicsConfig {
 
     @Bean
     public NewTopic userForecastUpdateTopic() {
-        return new NewTopic("user_forecast_update", 10, (short) 1); // 10 partitions
+        return new NewTopic("user_forecast_update", 10, (short) 1);
     }
 
     @Bean
     public NewTopic transactionExportTopic() {
         return new NewTopic("transaction_export_events", 1, (short) 1);
+    }
+
+    @Bean
+    public NewTopic forecastReadyTopic() {
+        return new NewTopic("forecast_ready", 10, (short) 1);
     }
 }

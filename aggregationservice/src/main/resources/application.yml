@@ -52,10 +52,25 @@ encryption:
 
 bank:
   api:
-    base-url: https://vbank.open.bankingapi.ru
-    client-id: ${BANK_CLIENT_ID:team214}
-    client-secret: ${BANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
-    token-endpoint: /auth/bank-token
+    banks:
+      vbank:
+        base-url: https://vbank.open.bankingapi.ru
+        client-id: ${VBANK_CLIENT_ID:team214}
+        client-secret: ${VBANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
+        token-endpoint: /auth/bank-token
+        token-ttl-hours: 24
+      abank:
+        base-url: https://abank.open.bankingapi.ru
+        client-id: ${ABANK_CLIENT_ID:team214}
+        client-secret: ${ABANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
+        token-endpoint: /auth/bank-token
+        token-ttl-hours: 24
+      sbank:
+        base-url: https://sbank.open.bankingapi.ru
+        client-id: ${SBANK_CLIENT_ID:team214}
+        client-secret: ${SBANK_CLIENT_SECRET:hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r}
+        token-endpoint: /auth/bank-token
+        token-ttl-hours: 24
 
 notification:
   service:

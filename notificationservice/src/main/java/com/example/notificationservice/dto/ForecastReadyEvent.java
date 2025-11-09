@@ -1,4 +1,4 @@
-package com.example.aggregationservice.dto;
+package com.example.notificationservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,9 +11,12 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserForecastUpdateEvent {
-    private UUID userId;
+public class ForecastReadyEvent {
+    private String userId;
     private String bankClientId;
-    private String analysisType;
+    private Boolean forecastReady;
     private Long timestamp;
+    private String error;
 }
+
+

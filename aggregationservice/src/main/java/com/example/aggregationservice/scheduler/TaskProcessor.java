@@ -17,9 +17,6 @@ public class TaskProcessor {
     private final BalanceUpdateHandler balanceUpdateHandler;
     private final BankConsentHandler bankConsentHandler;
 
-    /**
-     * Обрабатываем задачи каждую минуту
-     */
     @Scheduled(fixedRate = 60000)
     public void processTasks() {
         try {

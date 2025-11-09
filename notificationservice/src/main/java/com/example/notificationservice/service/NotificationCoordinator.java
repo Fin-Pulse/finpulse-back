@@ -20,17 +20,14 @@ public class NotificationCoordinator {
 
     @Transactional
     public Notification createNotificationWithWebSocket(CreateNotificationRequest request) {
-        // Создаем уведомление через NotificationService
         Notification notification = notificationService.createNotification(request);
 
-        // Отправляем через WebSocket
         try {
             NotificationDto dto = convertToDto(notification);
             webSocketNotificationService.sendNotificationToUser(notification.getUserId(), dto);
             log.info("Real-time notification sent to user: {}", notification.getUserId());
         } catch (Exception e) {
             log.error("Failed to send real-time notification: {}", e.getMessage());
-            // Продолжаем выполнение даже если WebSocket не работает
         }
 
         return notification;

@@ -23,90 +23,34 @@ import java.util.*;
 public class BankApiClient {
 
     private final RestTemplate restTemplate;
+    private final BankAuthService bankAuthService;
 
-    public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
-                                                    LocalDateTime fromDate, LocalDateTime toDate) {
-        log.info("🏦 Fetching transactions for account {} (client: {}) from {} to {}",
-                accountId, bankClientId, fromDate, toDate);
 
-        // Заглушка для тестирования - будет реализовано позже
-        return List.of(
-                Transaction.builder()
-                        .externalTransactionId("TX_" + System.currentTimeMillis())
-                        .amount(new BigDecimal("100.50"))
-                        .currency("RUB")
-                        .creditDebitIndicator("CREDIT")
-                        .status("Booked")
-                        .bookingDate(LocalDateTime.now())
-                        .transactionInformation("Test transaction from Bank API")
-                        .build()
-        );
-    }
-
-    /**
-     * Получает транзакции через Bank API используя consentId и teamToken
-     */
-    public List<Transaction> fetchAccountTransactions(Bank bank, String teamToken, String consentId,
-                                                      String accountId, LocalDateTime fromDate, LocalDateTime toDate) {
-        // Форматируем даты в ISO 8601 формат для API (YYYY-MM-DDTHH:mm:ss)
-        String fromDateStr = fromDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        String toDateStr = toDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        
-        // URL encoding для параметров
-        String encodedFromDate = java.net.URLEncoder.encode(fromDateStr, java.nio.charset.StandardCharsets.UTF_8);
-        String encodedToDate = java.net.URLEncoder.encode(toDateStr, java.nio.charset.StandardCharsets.UTF_8);
-        
-        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/transactions" +
-                "?fromBookingDate=" + encodedFromDate +
-                "&toBookingDate=" + encodedToDate;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(teamToken);
-        headers.set("X-Requesting-Bank", "team214");
-        headers.set("X-Consent-ID", consentId);
-        headers.set("Accept", "application/json");
-
+    private <T> ResponseEntity<T> callBankApi(Bank bank, String url, HttpMethod method,
+                                              HttpEntity<?> requestEntity, Class<T> responseType) {
         try {
-            ResponseEntity<BankTransactionResponse> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), BankTransactionResponse.class);
+            String token = bankAuthService.getBankToken(bank.getCode());
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                BankTransactionResponse responseBody = response.getBody();
-                List<com.example.aggregationservice.dto.BankTransaction> bankTransactions =
-                        responseBody.getData() != null ? responseBody.getData().getTransactions() : Collections.emptyList();
-
-                List<Transaction> transactions = new ArrayList<>();
-                for (com.example.aggregationservice.dto.BankTransaction bankTx : bankTransactions) {
-                    Transaction transaction = Transaction.builder()
-                            .externalTransactionId(bankTx.getTransactionId())
-                            .amount(bankTx.getAmount() != null ? bankTx.getAmount().getAmountAsBigDecimal() : BigDecimal.ZERO)
-                            .currency(bankTx.getAmount() != null ? bankTx.getAmount().getCurrency() : "RUB")
-                            .creditDebitIndicator(bankTx.getCreditDebitIndicator())
-                            .status(bankTx.getStatus())
-                            .bookingDate(bankTx.getBookingDateTime() != null ?
-                                    LocalDateTime.ofInstant(bankTx.getBookingDateTime(), java.time.ZoneId.systemDefault()) :
-                                    LocalDateTime.now())
-                            .valueDate(bankTx.getValueDateTime() != null ?
-                                    LocalDateTime.ofInstant(bankTx.getValueDateTime(), java.time.ZoneId.systemDefault()) :
-                                    null)
-                            .transactionInformation(bankTx.getTransactionInformation())
-                            .bankTransactionCode(bankTx.getBankTransactionCode() != null ?
-                                    bankTx.getBankTransactionCode().getCode() : null)
-                            .build();
-                    transactions.add(transaction);
-                }
-
-                log.info("✅ Fetched {} transactions for account {}", transactions.size(), accountId);
-                return transactions;
+            HttpHeaders headers = new HttpHeaders();
+            if (requestEntity.getHeaders() != null) {
+                headers.putAll(requestEntity.getHeaders());
             }
-        } catch (Exception e) {
-            log.error("❌ Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
-        }
+            headers.setBearerAuth(token);
+            headers.set("X-Requesting-Bank", "team214");
 
-        return Collections.emptyList();
+            HttpEntity<?> entityWithAuth = new HttpEntity<>(requestEntity.getBody(), headers);
+
+            log.debug("Calling bank API: {} {} for bank: {}", method, url, bank.getCode());
+
+            return restTemplate.exchange(url, method, entityWithAuth, responseType);
+
+        } catch (Exception e) {
+            log.error("Bank API call failed for bank {}: {}", bank.getCode(), e.getMessage());
+            throw new RuntimeException("Bank API call failed for " + bank.getCode(), e);
+        }
     }
 
-    public Optional<ConsentResponse> requestConsent(Bank bank, String teamToken, String clientId) {
+    public Optional<ConsentResponse> requestConsent(Bank bank, String clientId) {
         String url = bank.getBaseUrl() + "/account-consents/request";
 
         ConsentRequest body = ConsentRequest.builder()
@@ -118,15 +62,12 @@ public class BankApiClient {
                 .build();
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(teamToken);
-        headers.set("X-Requesting-Bank", "team214");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<ConsentRequest> request = new HttpEntity<>(body, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.POST, request, Map.class);
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.POST, request, Map.class);
 
             log.info("Bank {} response: status={}, body={}", bank.getCode(), response.getStatusCode(), response.getBody());
 
@@ -137,7 +78,6 @@ public class BankApiClient {
                 String requestId = (String) responseBody.get("request_id");
 
                 if ("approved".equals(status)) {
-                    // Существующая логика для approved
                     String consentId = (String) responseBody.get("consent_id");
 
                     ConsentResponse consentResponse = ConsentResponse.builder()
@@ -150,22 +90,19 @@ public class BankApiClient {
                             .autoApproved((Boolean) responseBody.get("auto_approved"))
                             .build();
 
-                    log.info("✅ Consent APPROVED for client {} in bank {}: {}", clientId, bank.getCode(), consentId);
                     return Optional.of(consentResponse);
 
                 } else if ("pending".equals(status)) {
-                    // Новая логика для pending-согласий
                     ConsentResponse consentResponse = ConsentResponse.builder()
                             .requestId(requestId)
-                            .consentId(null) // consentId будет позже
+                            .consentId(null)
                             .status(status)
                             .permissions(new String[]{"ReadAccountsDetail", "ReadBalances", "ReadTransactionsDetail"})
                             .createdAt(parseDateTime((String) responseBody.get("created_at")))
-                            .expiresAt(null) // установится после одобрения
+                            .expiresAt(null)
                             .autoApproved(false)
                             .build();
 
-                    log.info("⏳ Consent PENDING for client {} in bank {}: {}", clientId, bank.getCode(), requestId);
                     return Optional.of(consentResponse);
                 }
             }
@@ -177,11 +114,209 @@ public class BankApiClient {
         return Optional.empty();
     }
 
+    public Optional<ConsentResponse> checkConsentStatus(Bank bank, String requestId) {
+        String url = bank.getBaseUrl() + "/account-consents/" + requestId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-fapi-interaction-id", "team214");
+        headers.set("Accept", "application/json");
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
+                if (data != null) {
+                    String status = (String) data.get("status");
+                    String consentId = (String) data.get("consentId");
+
+                    if ("Authorized".equals(status) && consentId != null) {
+                        Instant expiresAt = Instant.parse((String) data.get("expirationDateTime"));
+
+                        ConsentResponse consentResponse = ConsentResponse.builder()
+                                .consentId(consentId)
+                                .status("approved")
+                                .requestId(requestId)
+                                .expiresAt(expiresAt)
+                                .build();
+
+                        return Optional.of(consentResponse);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error checking consent status for request {}: {}", requestId, e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    public List<Account> fetchAccounts(Bank bank, String consentId, String clientId) {
+        String url = bank.getBaseUrl() + "/accounts?client_id=" + clientId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                log.info("Accounts response: {}", responseBody);
+
+                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
+                if (data != null) {
+                    List<Map<String, Object>> accountsData = (List<Map<String, Object>>) data.get("account");
+
+                    List<Account> accounts = new ArrayList<>();
+                    for (Map<String, Object> accountData : accountsData) {
+                        Account account = new Account();
+                        account.setExternalAccountId((String) accountData.get("accountId"));
+                        account.setAccountType((String) accountData.get("accountType"));
+                        account.setAccountSubType((String) accountData.get("accountSubType"));
+                        account.setCurrency((String) accountData.get("currency"));
+                        account.setNickname((String) accountData.get("nickname"));
+                        account.setStatus((String) accountData.get("status"));
+
+                        if (accountData.get("openingDate") != null) {
+                            try {
+                                account.setOpeningDate(LocalDate.parse((String) accountData.get("openingDate")));
+                            } catch (Exception e) {
+                                log.warn("Failed to parse openingDate Error: {}", e.getMessage());
+                            }
+                        }
+
+                        List<Map<String, Object>> accountDetailsList = (List<Map<String, Object>>) accountData.get("account");
+                        if (accountDetailsList != null && !accountDetailsList.isEmpty()) {
+                            Map<String, Object> accountDetails = accountDetailsList.get(0);
+                            account.setAccountNumber((String) accountDetails.get("identification"));
+                            account.setAccountName((String) accountDetails.get("name"));
+                        }
+
+                        account.setLastSyncAt(Instant.now());
+                        accounts.add(account);
+                    }
+
+                    return accounts;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch accounts for consent {}: {}", consentId, e.getMessage(), e);
+        }
+
+        return Collections.emptyList();
+    }
+
+    public List<Transaction> fetchAccountTransactions(Bank bank, String consentId,
+                                                      String accountId, LocalDateTime fromDate, LocalDateTime toDate) {
+        String fromDateStr = fromDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        String toDateStr = toDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+        String encodedFromDate = java.net.URLEncoder.encode(fromDateStr, java.nio.charset.StandardCharsets.UTF_8);
+        String encodedToDate = java.net.URLEncoder.encode(toDateStr, java.nio.charset.StandardCharsets.UTF_8);
+
+        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/transactions" +
+                "?fromBookingDate=" + encodedFromDate +
+                "&toBookingDate=" + encodedToDate;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<BankTransactionResponse> response = callBankApi(bank, url, HttpMethod.GET, request, BankTransactionResponse.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                BankTransactionResponse responseBody = response.getBody();
+                List<BankTransactionResponse.Transaction> bankTransactions =
+                        responseBody.getData() != null && responseBody.getData().getTransaction() != null ?
+                                responseBody.getData().getTransaction() : Collections.emptyList();
+
+                List<Transaction> transactions = new ArrayList<>();
+                for (BankTransactionResponse.Transaction bankTx : bankTransactions) {
+                    BigDecimal amount = parseAmount(bankTx.getAmount());
+                    BigDecimal absoluteAmount = amount.abs();
+                    String creditDebitIndicator = bankTx.getCreditDebitIndicator();
+                    
+                    Boolean isExpense = "Debit".equalsIgnoreCase(creditDebitIndicator);
+
+                    String category = determineCategory(bankTx);
+
+                    Transaction transaction = Transaction.builder()
+                            .externalTransactionId(bankTx.getTransactionId())
+                            .amount(amount)
+                            .absoluteAmount(absoluteAmount)
+                            .isExpense(isExpense)
+                            .creditDebitIndicator(creditDebitIndicator)
+                            .bookingDate(parseBookingDate(bankTx.getBookingDateTime()))
+                            .transactionInformation(bankTx.getTransactionInformation())
+                            .category(category)
+                            .build();
+                    transactions.add(transaction);
+                }
+
+                return transactions;
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
+        }
+
+        return Collections.emptyList();
+    }
+
+    public Optional<Map<String, Object>> fetchAccountBalance(Bank bank, String consentId, String accountId) {
+        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/balances";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return Optional.of(response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch balance for account {}: {}", accountId, e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    @Deprecated
+    public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
+                                                    LocalDateTime fromDate, LocalDateTime toDate) {
+        log.warn("Using deprecated getAccountTransactions method - should be replaced with fetchAccountTransactions");
+        BigDecimal amount = new BigDecimal("100.50");
+        return List.of(
+                Transaction.builder()
+                        .externalTransactionId("TX_" + System.currentTimeMillis())
+                        .amount(amount)
+                        .absoluteAmount(amount.abs())
+                        .isExpense(false)
+                        .creditDebitIndicator("Credit")
+                        .bookingDate(LocalDateTime.now())
+                        .transactionInformation("Test transaction from Bank API")
+                        .category("other")
+                        .build()
+        );
+    }
+
     private Instant parseDateTime(String dateTimeStr) {
         if (dateTimeStr == null) return Instant.now();
 
         try {
-            // Просто обрезаем микросекунды до 3 цифр и добавляем Z
             if (dateTimeStr.contains(".")) {
                 String[] parts = dateTimeStr.split("\\.");
                 if (parts.length == 2) {
@@ -202,31 +337,24 @@ public class BankApiClient {
         }
     }
 
-    /**
-     * Нормализует строку даты-времени, обрезая микросекунды до миллисекунд
-     */
     private String normalizeDateTimeString(String dateTimeStr) {
         if (dateTimeStr == null) return null;
 
-        // Ищем точку с дробной частью
         int dotIndex = dateTimeStr.indexOf('.');
         if (dotIndex == -1) {
-            return dateTimeStr; // Нет дробной части
+            return dateTimeStr;
         }
 
-        // Ищем конец дробной части (T или конец строки)
         int endIndex = dateTimeStr.indexOf('T', dotIndex);
         if (endIndex == -1) {
             endIndex = dateTimeStr.length();
         }
 
-        // Берем только первые 3 цифры после точки
         String fractionalPart = dateTimeStr.substring(dotIndex + 1, endIndex);
         if (fractionalPart.length() > 3) {
             fractionalPart = fractionalPart.substring(0, 3);
         }
 
-        // Собираем обратно
         return dateTimeStr.substring(0, dotIndex + 1) + fractionalPart +
                 (endIndex < dateTimeStr.length() ? dateTimeStr.substring(endIndex) : "");
     }
@@ -234,7 +362,6 @@ public class BankApiClient {
     private Instant calculateExpiresAt(Map<String, Object> responseBody) {
         try {
             Instant createdAt = parseDateTime((String) responseBody.get("created_at"));
-            // Добавляем 90 дней к дате создания
             return createdAt.plus(90, java.time.temporal.ChronoUnit.DAYS);
         } catch (Exception e) {
             log.warn("Failed to calculate expiresAt, using default 90 days");
@@ -242,141 +369,120 @@ public class BankApiClient {
         }
     }
 
-    public List<Account> fetchAccounts(Bank bank, String teamToken, String consentId, String clientId) {
-        String url = bank.getBaseUrl() + "/accounts?client_id=" + clientId;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(teamToken);
-        headers.set("X-Requesting-Bank", "team214");
-        headers.set("X-Consent-ID", consentId);
-        headers.set("Accept", "application/json");
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> responseBody = response.getBody();
-                log.info("Accounts response: {}", responseBody);
-
-                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
-                if (data != null) {
-                    List<Map<String, Object>> accountsData = (List<Map<String, Object>>) data.get("account");
-
-                    List<Account> accounts = new ArrayList<>();
-                    for (Map<String, Object> accountData : accountsData) {
-                        Account account = new Account();
-                        account.setExternalAccountId((String) accountData.get("accountId"));
-                        account.setAccountType((String) accountData.get("accountType"));
-                        account.setAccountSubType((String) accountData.get("accountSubType"));
-                        account.setCurrency((String) accountData.get("currency"));
-                        account.setNickname((String) accountData.get("nickname"));
-                        account.setStatus((String) accountData.get("status"));
-
-                        // Парсим openingDate
-                        if (accountData.get("openingDate") != null) {
-                            try {
-                                account.setOpeningDate(LocalDate.parse((String) accountData.get("openingDate")));
-                            } catch (Exception e) {
-                                log.warn("Failed to parse openingDate: {}", accountData.get("openingDate"));
-                            }
-                        }
-
-                        // ВНИМАНИЕ: account - это список, а не Map!
-                        List<Map<String, Object>> accountDetailsList = (List<Map<String, Object>>) accountData.get("account");
-                        if (accountDetailsList != null && !accountDetailsList.isEmpty()) {
-                            Map<String, Object> accountDetails = accountDetailsList.get(0); // берем первый элемент
-                            account.setAccountNumber((String) accountDetails.get("identification"));
-                            account.setAccountName((String) accountDetails.get("name"));
-                        }
-
-                        account.setLastSyncAt(Instant.now());
-                        accounts.add(account);
-                    }
-
-                    log.info("Fetched {} accounts for consent {}", accounts.size(), consentId);
-                    return accounts;
-                }
-            }
-        } catch (Exception e) {
-            log.error("Failed to fetch accounts for consent {}: {}", consentId, e.getMessage(), e);
+    private BigDecimal parseAmount(BankTransactionResponse.Transaction.Amount amount) {
+        if (amount == null || amount.getAmount() == null) {
+            return BigDecimal.ZERO;
         }
-
-        return Collections.emptyList();
-    }
-    public Optional<ConsentResponse> checkConsentStatus(Bank bank, String teamToken, String requestId) {
-        // Используем request_id как параметр в URL
-        String url = bank.getBaseUrl() + "/account-consents/" + requestId;
-
-        HttpHeaders headers = new HttpHeaders();
-        // Судя по документации - без аутентификации
-        headers.set("x-fapi-interaction-id", "team214");
-        headers.set("Accept", "application/json");
-
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            log.info("🔍 Checking consent status for requestId: {}", requestId);
-            log.info("📡 Response status: {}", response.getStatusCode());
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> responseBody = response.getBody();
-                log.info("📦 Response body: {}", responseBody);
-
-                Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
-                if (data != null) {
-                    String status = (String) data.get("status");
-                    String consentId = (String) data.get("consentId");
-
-                    log.info("🎯 Parsed - Status: {}, ConsentId: {}", status, consentId);
-
-                    // "Authorized" = approved в нашей системе
-                    if ("Authorized".equals(status) && consentId != null) {
-                        Instant expiresAt = Instant.parse((String) data.get("expirationDateTime"));
-
-                        ConsentResponse consentResponse = ConsentResponse.builder()
-                                .consentId(consentId)
-                                .status("approved") // приводим к нашему формату
-                                .requestId(requestId)
-                                .expiresAt(expiresAt)
-                                .build();
-
-                        log.info("✅ Consent authorized! ConsentId: {}, Expires: {}", consentId, expiresAt);
-                        return Optional.of(consentResponse);
-                    } else {
-                        log.info("⏳ Consent status: {} for requestId: {}", status, requestId);
-                    }
-                }
-            }
+            return new BigDecimal(amount.getAmount());
         } catch (Exception e) {
-            log.error("Error checking consent status for request {}: {}", requestId, e.getMessage());
+            log.warn("Failed to parse amount: {}", amount.getAmount());
+            return BigDecimal.ZERO;
         }
-
-        return Optional.empty();
     }
 
-    public Optional<Map<String, Object>> fetchAccountBalance(Bank bank, String teamToken,
-                                                             String consentId, String accountId) {
-        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/balances";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(teamToken);
-        headers.set("X-Requesting-Bank", "team214");
-        headers.set("X-Consent-ID", consentId);
-        headers.set("Accept", "application/json");
-
+    private LocalDateTime parseBookingDate(String bookingDateTime) {
+        if (bookingDateTime == null) {
+            return LocalDateTime.now();
+        }
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return Optional.of(response.getBody());
-            }
+            return LocalDateTime.parse(bookingDateTime.replace("Z", "").replace("+00:00", ""));
         } catch (Exception e) {
-            log.error("Failed to fetch balance for account {}: {}", accountId, e.getMessage());
+            try {
+                Instant instant = Instant.parse(bookingDateTime);
+                return LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+            } catch (Exception e2) {
+                log.warn("Failed to parse booking date: {}", bookingDateTime);
+                return LocalDateTime.now();
+            }
+        }
+    }
+
+
+    private String determineCategory(BankTransactionResponse.Transaction bankTx) {
+        if (bankTx.getMerchant() != null && bankTx.getMerchant().getCategory() != null) {
+            return bankTx.getMerchant().getCategory();
         }
 
-        return Optional.empty();
+        if (bankTx.getMerchant() != null && bankTx.getMerchant().getMccCode() != null) {
+            String categoryByMcc = getCategoryByMcc(bankTx.getMerchant().getMccCode());
+            if (categoryByMcc != null) {
+                return categoryByMcc;
+            }
+        }
+
+        if (bankTx.getTransactionInformation() != null) {
+            String categoryByDescription = getCategoryByDescription(bankTx.getTransactionInformation());
+            if (categoryByDescription != null) {
+                return categoryByDescription;
+            }
+        }
+
+        if ("Credit".equals(bankTx.getCreditDebitIndicator())) {
+            return "income";
+        }
+
+        return "other";
+    }
+
+    private String getCategoryByMcc(String mccCode) {
+        if (mccCode == null) return null;
+
+        // Основные MCC коды
+        switch (mccCode) {
+            case "5411": // Супермаркеты
+                return "grocery";
+            case "5812": // Рестораны
+                return "restaurant";
+            case "5814": // Кафе
+                return "cafe";
+            case "5651": // Одежда
+                return "clothing";
+            case "5541": // АЗС
+                return "gas";
+            case "4814": // Телекоммуникации
+                return "telecom";
+            case "4900": // Коммунальные услуги
+                return "utilities";
+            case "5999": // Разное
+                return "other";
+            default:
+                return null;
+        }
+    }
+
+    private String getCategoryByDescription(String description) {
+        if (description == null) return null;
+
+        String descLower = description.toLowerCase();
+
+        if (descLower.contains("транспорт") || descLower.contains("метро") ||
+            descLower.contains("автобус") || descLower.contains("такси") ||
+            descLower.contains("uber") || descLower.contains("yandex")) {
+            return "transport";
+        }
+
+        if (descLower.contains("зарплата") || descLower.contains("salary") ||
+            descLower.contains("заработная плата")) {
+            return "income";
+        }
+
+        if (descLower.contains("пятёрочка") || descLower.contains("лента") ||
+            descLower.contains("ашан") || descLower.contains("перекрёсток") ||
+            descLower.contains("дикси") || descLower.contains("вкусвилл")) {
+            return "grocery";
+        }
+
+        if (descLower.contains("starbucks") || descLower.contains("кофе") ||
+            descLower.contains("шоколадница") || descLower.contains("coffee")) {
+            return "cafe";
+        }
+
+        if (descLower.contains("макдоналдс") || descLower.contains("mcdonald") ||
+            descLower.contains("сбарро") || descLower.contains("ресторан")) {
+            return "restaurant";
+        }
+
+        return null;
     }
 }

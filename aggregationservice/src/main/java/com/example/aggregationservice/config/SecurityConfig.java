@@ -16,10 +16,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(authz -> authz.anyRequest().permitAll()) // Разрешить ВСЕ запросы
+                .authorizeHttpRequests(authz -> authz.anyRequest().permitAll())
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
-                .headers(headers -> headers.disable()) // Отключить security headers
+                .headers(headers -> headers.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();

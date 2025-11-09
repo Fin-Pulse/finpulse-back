@@ -1,4 +1,3 @@
-// service/MlAnalysisHandler.java
 package com.example.aggregationservice.service;
 
 import com.example.aggregationservice.client.UserServiceClient;
@@ -28,10 +27,7 @@ public class MlAnalysisHandler implements TaskHandler {
 
     @Override
     public void handle(ScheduledTask task) {
-        log.info("Starting ML analysis for all users");
-
         List<UUID> allUserIds = userGroupService.getAllActiveUserIds();
-        log.info("Processing {} users for ML analysis", allUserIds.size());
 
         int sentCount = 0;
 
@@ -50,7 +46,6 @@ public class MlAnalysisHandler implements TaskHandler {
                         .timestamp(System.currentTimeMillis())
                         .build();
 
-                // 🔥 ПРОСТАЯ ОТПРАВКА В KAFKA
                 sendToKafka(userId, event);
                 sentCount++;
 
@@ -58,21 +53,14 @@ public class MlAnalysisHandler implements TaskHandler {
                 log.error("Failed to process user {} for ML analysis", userId, e);
             }
         }
-
-        log.info("ML analysis completed: {} users processed", sentCount);
     }
 
-    /**
-     * 🔥 Простая отправка в Kafka без лишних сложностей
-     */
     public void sendToKafka(UUID userId, UserForecastUpdateEvent event) {
         try {
             int partition = Math.abs(userId.hashCode()) % 10;
             kafkaTemplate.send("user_forecast_update", partition, userId.toString(), event);
-            log.debug("Sent ML event for user {} to partition {}", userId, partition);
         } catch (Exception e) {
             log.error("Failed to send ML event for user {}: {}", userId, e.getMessage());
-            // Не пробрасываем исключение, чтобы не ломать обработку других пользователей
         }
     }
 

@@ -18,7 +18,7 @@ public class TaskController {
     @PostMapping("/balance-update")
     public ResponseEntity<String> scheduleBalanceUpdate(@RequestBody Map<String, Object> request) {
         String clientId = (String) request.get("clientId");
-        Instant scheduledTime = Instant.now().plusSeconds(30); // через 30 секунд
+        Instant scheduledTime = Instant.now().plusSeconds(30);
 
         Map<String, Object> taskData = Map.of("clientId", clientId != null ? clientId : "ALL");
 

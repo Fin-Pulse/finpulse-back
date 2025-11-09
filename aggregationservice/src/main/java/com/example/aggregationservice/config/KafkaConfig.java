@@ -1,4 +1,3 @@
-// config/KafkaConfig.java
 package com.example.aggregationservice.config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;

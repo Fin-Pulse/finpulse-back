@@ -21,9 +21,7 @@ public class RedisConfig {
     @Value("${spring.redis.port:6379}")
     private int redisPort;
 
-    /**
-     * 🔥 Явно создаем RedisConnectionFactory с правильными настройками
-     */
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
@@ -32,10 +30,6 @@ public class RedisConfig {
         return new LettuceConnectionFactory(config);
     }
 
-
-    /**
-     * 🔥 Бин для Object операций (для UserGroupService)
-     */
     @Bean
     public RedisTemplate<String, Object> objectRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -44,7 +38,7 @@ public class RedisConfig {
         template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
-        template.afterPropertiesSet(); // 🔥 Важно: вызываем инициализацию
+        template.afterPropertiesSet();
         return template;
     }
 }
