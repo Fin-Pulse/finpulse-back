@@ -1,0 +1,52 @@
+server:
+  port: 8084
+
+spring:
+  websocket:
+    enabled: true
+  application:
+    name: notificationservice
+  datasource:
+    url: jdbc:postgresql://postgres:5432/finpulse
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      group-id: notification-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.notificationservice.dto,com.example.*"
+        spring.json.type.mapping: forecastReadyEvent:com.example.notificationservice.dto.ForecastReadyEvent
+        spring.json.value.default.type: com.example.notificationservice.dto.ForecastReadyEvent
+        spring.json.use.type.headers: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+
+# Временно отключаем security для тестирования
+spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+minio:
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000/ml-charts}
+
+logging:
+  level:
+    com.example.notificationservice: INFO

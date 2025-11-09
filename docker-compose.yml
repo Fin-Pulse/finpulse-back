@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # База данных
+  postgres:
+    image: postgres:14
+    container_name: finpulse-postgres
+    environment:
+      POSTGRES_DB: finpulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - finpulse-network
+
+
+  # Кэш и сессии
+  redis:
+    image: redis:7-alpine
+    container_name: finpulse-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - finpulse-network
+
+  # Message Broker
+#  zookeeper:
+#    image: confluentinc/cp-zookeeper:latest
+#    container_name: finpulse-zookeeper
+#    environment:
+#      ZOOKEEPER_CLIENT_PORT: 2181
+#      ZOOKEEPER_TICK_TIME: 2000
+#    ports:
+#      - "2181:2181"
+#    networks:
+#      - finpulse-network
+#
+#  kafka:
+#    image: confluentinc/cp-kafka:latest
+#    container_name: finpulse-kafka
+#    depends_on:
+#      - zookeeper
+#    environment:
+#      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+#      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+#      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#    ports:
+#      - "9092:9092"
+#    networks:
+#      - finpulse-network
+
+  # Микросервисы
+#  apigateway:
+#    build:
+#      context: .
+#      dockerfile: apigateway/Dockerfile
+#    container_name: finpulse-apigateway
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=docker
+#      - DB_URL=jdbc:postgresql://postgres:5432/finpulse
+#      - REDIS_HOST=redis
+#      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+#    depends_on:
+#      - postgres
+#      - redis
+#      - kafka
+#    networks:
+#      - finpulse-network
+
+#  userservice:
+#    build:
+#      context: .
+#      dockerfile: userservice/Dockerfile
+#    container_name: finpulse-userservice
+#    ports:
+#      - "8081:8081"
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=docker
+#      - DB_URL=jdbc:postgresql://postgres:5432/finpulse
+#      - REDIS_HOST=redis
+#      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+#    depends_on:
+#      - postgres
+#      - redis
+#      - kafka
+#    networks:
+#      - finpulse-network
+
+  aggregationservice:
+    build:
+      context: .
+      dockerfile: aggregationservice/Dockerfile
+    container_name: finpulse-aggregationservice
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_URL=jdbc:postgresql://postgres:5432/finpulse
+      - REDIS_HOST=redis
+      #- KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - BANK_CLIENT_ID=team214
+      - BANK_CLIENT_SECRET=hk3EA0lgqWelO7P1gYSnyqCY3zNmez3r
+    depends_on:
+      - postgres
+      - redis
+      #- kafka
+    networks:
+      - finpulse-network
+
+  notificationservice:
+    build:
+      context: ../finpulse-back
+      dockerfile: notificationservice/Dockerfile
+    container_name: finpulse-notificationservice
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/finpulse
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+    depends_on:
+      - postgres
+    networks:
+      - finpulse-network
+
+volumes:
+  postgres_data:
+
+networks:
+  finpulse-network:
+    driver: bridge
