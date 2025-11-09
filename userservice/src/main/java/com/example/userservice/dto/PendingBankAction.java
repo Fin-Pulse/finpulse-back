@@ -14,7 +14,7 @@ public class PendingBankAction {
     private String bankName;
     private String requestId;
     private String actionMessage;
-    private String actionType; // "need_app_approval", "need_sms_verification", etc.
-    private String deepLink; // Ссылка для быстрого перехода в приложение банка
-    private String instructions; // Подробные инструкции для пользователя
+    private String actionType;
+    private String deepLink;
+    private String instructions;
 }

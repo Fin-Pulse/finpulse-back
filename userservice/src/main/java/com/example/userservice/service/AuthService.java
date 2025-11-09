@@ -45,10 +45,8 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // 🔄 Шаг 1: Верификация в банках через AggregationService
         BankVerificationResult verificationResult = verifyUserInBanks(savedUser);
 
-        // 🔄 Шаг 2: Отправляем email (в хакатоне логируем)
         emailVerificationService.sendVerificationEmail(savedUser);
 
         String token = jwtService.generateToken(savedUser.getId(), savedUser.getEmail());
@@ -58,7 +56,7 @@ public class AuthService {
                 .tokenType("Bearer")
                 .expiresIn(86400000L)
                 .user(mapToProfile(savedUser))
-                .bankVerification(verificationResult) // Полная информация для фронта
+                .bankVerification(verificationResult)
                 .build();
     }
 
@@ -74,7 +72,6 @@ public class AuthService {
             throw new InvalidCredentialsException("Account is deactivated");
         }
 
-        // При логине проверяем актуальный статус верификации
         refreshVerificationStatus(user);
 
         String token = jwtService.generateToken(user.getId(), user.getEmail());
@@ -87,30 +84,19 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * Верифицирует пользователя в банках и обновляет статус
-     */
     private BankVerificationResult verifyUserInBanks(User user) {
         try {
-            log.info("Starting bank verification for user: {}", user.getEmail());
 
-            // AggregationService сам создаст задачи для pending банков
             BankVerifyResponse response = aggregationServiceClient.verifyClient(user.getBankClientId());
 
-            // Обновляем статус пользователя
             updateUserVerificationStatus(user, response);
 
-            // Преобразуем ответ в полную информацию для фронта
             BankVerificationResult result = mapToBankVerificationResult(response);
 
-            log.info("Bank verification completed for user: {}, status: {}",
-                    user.getEmail(), result.getOverallStatus());
 
             return result;
 
         } catch (Exception e) {
-            log.error("Bank verification failed for user: {}, error: {}",
-                    user.getEmail(), e.getMessage());
 
             user.setVerificationStatus(VerificationStatus.ERROR);
             userRepository.save(user);
@@ -149,9 +135,6 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * Генерирует понятные инструкции для пользователя
-     */
     private String generateInstructions(PendingBank pendingBank) {
         switch (pendingBank.getActionRequired()) {
             case "need_app_approval":
@@ -175,9 +158,7 @@ public class AuthService {
         }
     }
 
-    /**
-     * Генерирует следующие шаги для пользователя
-     */
+
     private String generateNextSteps(VerificationStatus status, List<PendingBankAction> pendingActions) {
         if (status == VerificationStatus.VERIFIED) {
             return "Все банки подключены! Вы можете начать использование сервиса.";
@@ -193,9 +174,6 @@ public class AuthService {
         }
     }
 
-    /**
-     * Обновляет статус верификации пользователя
-     */
     private void refreshVerificationStatus(User user) {
         try {
             BankVerifyResponse response = aggregationServiceClient.checkVerificationStatus(user.getBankClientId());
@@ -205,21 +183,15 @@ public class AuthService {
         }
     }
 
-    /**
-     * Обновляет пользователя на основе ответа от агрегационного сервиса
-     */
     private void updateUserVerificationStatus(User user, BankVerifyResponse response) {
         user.setVerificationStatus(response.getStatus());
 
-        // Пользователь считается верифицированным если есть хотя бы PARTIALLY_VERIFIED
         boolean isVerified = response.getStatus() == VerificationStatus.VERIFIED ||
                 response.getStatus() == VerificationStatus.PARTIALLY_VERIFIED;
         user.setVerified(isVerified);
 
         userRepository.save(user);
 
-        log.info("Updated user {} verification status to: {}, verified: {}",
-                user.getEmail(), response.getStatus(), isVerified);
     }
 
     private UserProfile mapToProfile(User user) {

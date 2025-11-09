@@ -20,7 +20,6 @@ FROM --platform=$TARGETPLATFORM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
-# Ubuntu команды (apt-get вместо apk)
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 COPY ./userservice/target/userservice-0.0.1-SNAPSHOT.jar app.jar
