@@ -30,6 +30,8 @@ spring:
         spring.json.type.mapping: forecastReadyEvent:com.example.notificationservice.dto.ForecastReadyEvent
         spring.json.value.default.type: com.example.notificationservice.dto.ForecastReadyEvent
         spring.json.use.type.headers: false
+  liquibase:
+    enabled: false
 
 springdoc:
   api-docs:
