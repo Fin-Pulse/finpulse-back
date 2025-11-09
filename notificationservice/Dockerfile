@@ -32,13 +32,10 @@ FROM --platform=$TARGETPLATFORM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
-# Install curl for health check
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy the JAR file from module target directory
 COPY ./notificationservice/target/notificationservice-0.0.1-SNAPSHOT.jar app.jar
 
-# Create non-root user
 RUN groupadd -r spring && useradd -r -g spring spring
 USER spring
 

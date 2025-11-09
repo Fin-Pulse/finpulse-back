@@ -18,7 +18,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
 
-        log.info("✅ WebSocket message broker configured");
     }
 
     @Override
@@ -26,9 +25,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         WebSocketHandshakeHandler handshakeHandler = new WebSocketHandshakeHandler();
         WebSocketAuthInterceptor authInterceptor = new WebSocketAuthInterceptor();
 
-        log.info("🔧 Registering WebSocket endpoints...");
-
-        // WebSocket эндпоинт для уведомлений
         registry.addEndpoint("/ws/notifications")
                 .addInterceptors(authInterceptor)
                 .setHandshakeHandler(handshakeHandler)
@@ -40,7 +36,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setHandshakeHandler(handshakeHandler)
                 .setAllowedOriginPatterns("*");
 
-        // WebSocket эндпоинт для прогнозов
         registry.addEndpoint("/ws/forecasts")
                 .addInterceptors(authInterceptor)
                 .setHandshakeHandler(handshakeHandler)
@@ -52,6 +47,5 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setHandshakeHandler(handshakeHandler)
                 .setAllowedOriginPatterns("*");
 
-        log.info("✅ WebSocket endpoints registered: /ws/notifications, /ws/forecasts");
     }
 }

@@ -15,7 +15,6 @@ public interface UserForecastRepository extends JpaRepository<UserForecast, UUID
     @Query("SELECT uf FROM UserForecast uf WHERE uf.userId = :userId ORDER BY uf.forecastWeekStart DESC, uf.updatedAt DESC LIMIT 1")
     Optional<UserForecast> findLatestByUserId(@Param("userId") UUID userId);
 
-    // Или нативный запрос если нужна более точная настройка
     @Query(value = """
         SELECT * FROM user_forecasts uf 
         WHERE uf.user_id = :userId 
