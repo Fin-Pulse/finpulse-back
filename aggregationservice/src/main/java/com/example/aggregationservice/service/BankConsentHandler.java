@@ -61,10 +61,9 @@ public class BankConsentHandler implements TaskHandler {
                     .orElseThrow(() -> new RuntimeException(
                             String.format("Bank with code '%s' not found in database", bankCode)
                     ));
-            String teamToken = bankAuthService.getTeamToken();
 
             // Проверяем статус согласия в банке
-            var statusResponse = bankApiClient.checkConsentStatus(bank, teamToken, requestId);
+            var statusResponse = bankApiClient.checkConsentStatus(bank, requestId);
 
             if (statusResponse.isPresent() && "approved".equals(statusResponse.get().getStatus())) {
                 // ✅ Согласие approved - загружаем счета

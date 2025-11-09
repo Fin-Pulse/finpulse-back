@@ -36,7 +36,6 @@ public class BalanceService {
     public void updateBalancesForUser(String bankClientId) {
         log.info("Updating balances for user: {}", bankClientId);
 
-        String teamToken = bankAuthService.getTeamToken();
         List<UserConsent> activeConsents = userConsentRepository.findByBankClientIdAndStatus(
                 bankClientId, ConsentStatus.ACTIVE);
 
@@ -50,7 +49,7 @@ public class BalanceService {
 
                 // Для каждого счета получаем баланс
                 for (Account account : accounts) {
-                    updateAccountBalance(account, bank, teamToken, consent);
+                    updateAccountBalance(account, bank, consent);
                 }
 
                 log.info("Updated balances for {} accounts in bank {}", accounts.size(), bank.getCode());
@@ -64,13 +63,13 @@ public class BalanceService {
     /**
      * Обновляет баланс для конкретного счета
      */
-    private void updateAccountBalance(Account account, Bank bank, String teamToken, UserConsent consent) {
+    private void updateAccountBalance(Account account, Bank bank, UserConsent consent) {
         try {
             String decryptedConsentId = encryptionService.decrypt(consent.getConsentId());
 
             // Получаем балансы из банка
             var balanceResponse = bankApiClient.fetchAccountBalance(
-                    bank, teamToken, decryptedConsentId, account.getExternalAccountId());
+                    bank, decryptedConsentId, account.getExternalAccountId());
 
             if (balanceResponse.isPresent()) {
                 var balanceData = balanceResponse.get();

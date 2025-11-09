@@ -39,7 +39,6 @@ public class UserVerificationService {
     public BankVerifyResponse verifyClient(String bankClientId) {
         log.info("Starting verification for client: {}", bankClientId);
 
-        String teamToken = bankAuthService.getTeamToken();
         List<Bank> activeBanks = bankRepository.findAllActiveBanks();
 
         log.info("Verifying client {} across {} active banks", bankClientId, activeBanks.size());
@@ -54,7 +53,7 @@ public class UserVerificationService {
             try {
                 log.info("Trying bank: {} ({})", bank.getName(), bank.getCode());
 
-                var consentOpt = bankApiClient.requestConsent(bank, teamToken, bankClientId);
+                var consentOpt = bankApiClient.requestConsent(bank, bankClientId);
                 if (consentOpt.isEmpty()) {
                     log.info("Client {} not found in {}", bankClientId, bank.getCode());
                     continue;
@@ -106,7 +105,7 @@ public class UserVerificationService {
                 UserConsent savedConsent = userConsentRepository.save(consent);
 
                 String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
-                var bankAccounts = bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, bankClientId);
+                var bankAccounts = bankApiClient.fetchAccounts(bank, decryptedConsentId, bankClientId);
 
                 for (Account account : bankAccounts) {
                     account.setUserConsentId(savedConsent.getId());
@@ -223,6 +222,6 @@ public class UserVerificationService {
 
     public List<Account> fetchAccountsWithDecryption(Bank bank, String teamToken, String encryptedConsentId, String clientId) {
         String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
-        return bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, clientId);
+        return bankApiClient.fetchAccounts(bank, decryptedConsentId, clientId);
     }
 }

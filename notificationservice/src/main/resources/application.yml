@@ -7,7 +7,7 @@ spring:
   application:
     name: notificationservice
   datasource:
-    url: jdbc:postgresql://localhost:5432/finpulse
+    url: jdbc:postgresql://postgres:5432/finpulse
     username: postgres
     password: password
     driver-class-name: org.postgresql.Driver
@@ -19,6 +19,17 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      group-id: notification-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.example.notificationservice.dto,com.example.*"
+        spring.json.type.mapping: forecastReadyEvent:com.example.notificationservice.dto.ForecastReadyEvent
+        spring.json.value.default.type: com.example.notificationservice.dto.ForecastReadyEvent
+        spring.json.use.type.headers: false
 
 # Swagger Configuration
 springdoc:
@@ -33,6 +44,10 @@ springdoc:
 
 # Временно отключаем security для тестирования
 spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# MinIO конфигурация для формирования полных URL графиков
+minio:
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000/ml-charts}
 
 logging:
   level:

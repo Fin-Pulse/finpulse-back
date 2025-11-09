@@ -1,5 +1,6 @@
 package com.example.aggregationservice.service;
 
+import com.example.aggregationservice.client.UserServiceClient;
 import com.example.aggregationservice.model.Account;
 import com.example.aggregationservice.model.Bank;
 import com.example.aggregationservice.model.Transaction;
@@ -11,6 +12,7 @@ import com.example.aggregationservice.repository.TransactionRepository;
 import com.example.aggregationservice.repository.UserConsentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class TransactionService {
     private final BankAuthService bankAuthService;
     private final ConsentEncryptionService encryptionService;
     private final BankRepository bankRepository;
+    private final UserServiceClient userServiceClient;
 
     /**
      * Выгружает исторические транзакции за указанное количество недель
@@ -57,7 +60,6 @@ public class TransactionService {
             return 0;
         }
 
-        String teamToken = bankAuthService.getTeamToken();
         int totalTransactions = 0;
 
         for (Account account : accounts) {
@@ -70,7 +72,7 @@ public class TransactionService {
             try {
                 String decryptedConsentId = encryptionService.decrypt(consent.getConsentId());
                 List<Transaction> transactions = bankApiClient.fetchAccountTransactions(
-                        bank, teamToken, decryptedConsentId,
+                        bank, decryptedConsentId,
                         account.getExternalAccountId(), fromDate, toDate
                 );
 
@@ -105,6 +107,13 @@ public class TransactionService {
     private int saveTransactions(UUID accountId, String bankClientId, List<Transaction> transactions) {
         int savedCount = 0;
 
+        // Получаем user_id один раз для всех транзакций
+        UUID userId = getUserIdByBankClientId(bankClientId);
+        if (userId == null) {
+            log.warn("⚠️ Cannot save transactions: user not found for bankClientId: {}", bankClientId);
+            return 0;
+        }
+
         for (Transaction transaction : transactions) {
             try {
                 // Проверяем, не существует ли уже такая транзакция
@@ -112,7 +121,19 @@ public class TransactionService {
                         accountId, transaction.getExternalTransactionId())) {
 
                     transaction.setAccountId(accountId);
+                    transaction.setUserId(userId);
                     transaction.setBankClientId(bankClientId);
+                    
+                    // Убеждаемся, что absoluteAmount установлен
+                    if (transaction.getAbsoluteAmount() == null || transaction.getAbsoluteAmount().signum() == 0) {
+                        transaction.setAbsoluteAmount(transaction.getAmount().abs());
+                    }
+                    
+                    // Убеждаемся, что isExpense установлен
+                    if (transaction.getIsExpense() == null) {
+                        transaction.setIsExpense("Debit".equalsIgnoreCase(transaction.getCreditDebitIndicator()));
+                    }
+                    
                     transactionRepository.save(transaction);
                     savedCount++;
                 }
@@ -123,5 +144,23 @@ public class TransactionService {
         }
 
         return savedCount;
+    }
+
+    /**
+     * Получает user_id по bank_client_id через UserServiceClient
+     */
+    private UUID getUserIdByBankClientId(String bankClientId) {
+        try {
+            ResponseEntity<UUID> response = userServiceClient.getUserIdByBankClientId(bankClientId);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            } else {
+                log.warn("⚠️ User not found for bankClientId: {}", bankClientId);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("❌ Failed to get userId for bankClientId {}: {}", bankClientId, e.getMessage());
+            return null;
+        }
     }
 }

@@ -43,7 +43,6 @@ public class WebSocketNotificationService {
             Notification notification = notificationRepository.findById(notificationId)
                     .orElseThrow(() -> new NotificationNotFoundException(notificationId));
 
-            // Проверяем, что уведомление принадлежит пользователю
             if (!notification.getUserId().equals(userId)) {
                 throw new NotificationAccessDeniedException(notificationId, userId);
             }
@@ -51,14 +50,12 @@ public class WebSocketNotificationService {
             notification.setIsRead(true);
             Notification updatedNotification = notificationRepository.save(notification);
 
-            // Отправляем обновленное уведомление обратно пользователю
             NotificationDto dto = convertToDto(updatedNotification);
             sendNotificationToUser(userId, dto);
 
             log.info("Notification {} marked as read for user {}", notificationId, userId);
         } catch (Exception e) {
             log.error("Error marking notification as read: {}", e.getMessage());
-            // Отправляем сообщение об ошибке пользователю
             messagingTemplate.convertAndSendToUser(
                     userId.toString(),
                     "/queue/errors",

@@ -46,7 +46,6 @@ public class ConsentStatusService {
             return;
         }
 
-        String teamToken = bankAuthService.getTeamToken();
 
         for (UserConsent consent : pendingConsents) {
             try {
@@ -54,7 +53,7 @@ public class ConsentStatusService {
                         .orElseThrow(() -> new RuntimeException("Bank not found"));
 
                 // Передаем bankClientId для повторного запроса
-                var statusResponse = bankApiClient.checkConsentStatus(bank, teamToken, consent.getRequestId());
+                var statusResponse = bankApiClient.checkConsentStatus(bank, consent.getRequestId());
 
                 if (statusResponse.isPresent() && "approved".equals(statusResponse.get().getStatus())) {
                     // Согласие одобрено - обновляем и загружаем счета
@@ -70,7 +69,7 @@ public class ConsentStatusService {
 
                     // Загружаем счета
                     String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
-                    var accounts = bankApiClient.fetchAccounts(bank, teamToken, decryptedConsentId, bankClientId);
+                    var accounts = bankApiClient.fetchAccounts(bank, decryptedConsentId, bankClientId);
 
                     for (Account account : accounts) {
                         account.setUserConsentId(consent.getId());
@@ -153,7 +152,7 @@ public class ConsentStatusService {
 
             // Загружаем счета
             String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
-            var accounts = bankApiClient.fetchAccounts(bank, bankAuthService.getTeamToken(),
+            var accounts = bankApiClient.fetchAccounts(bank,
                     decryptedConsentId, clientId);
 
             for (Account account : accounts) {
