@@ -1,4 +1,3 @@
-// dto/BankTransactionResponse.java
 package com.example.aggregationservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;

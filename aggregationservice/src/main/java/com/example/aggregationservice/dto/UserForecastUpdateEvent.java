@@ -1,4 +1,3 @@
-// dto/UserForecastUpdateEvent.java
 package com.example.aggregationservice.dto;
 
 import lombok.AllArgsConstructor;

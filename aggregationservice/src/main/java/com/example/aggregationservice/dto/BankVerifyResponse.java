@@ -19,7 +19,6 @@ public class BankVerifyResponse {
     private int accountsCount;
     private String consentId;
 
-    // Новые поля для pending-банков
     private List<PendingBank> pendingBanks;
     private boolean requiresUserAction;
 }

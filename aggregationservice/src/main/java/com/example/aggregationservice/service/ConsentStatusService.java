@@ -34,9 +34,6 @@ public class ConsentStatusService {
     private final BalanceService balanceService;
     private final NotificationService notificationService;
 
-    /**
-     * Проверяет статус pending-согласий и обновляет их при одобрении
-     */
     @Transactional
     public void checkPendingConsents(String bankClientId) {
         List<UserConsent> pendingConsents = userConsentRepository.findByBankClientIdAndStatus(
@@ -52,11 +49,9 @@ public class ConsentStatusService {
                 Bank bank = bankRepository.findById(consent.getBankId())
                         .orElseThrow(() -> new RuntimeException("Bank not found"));
 
-                // Передаем bankClientId для повторного запроса
                 var statusResponse = bankApiClient.checkConsentStatus(bank, consent.getRequestId());
 
                 if (statusResponse.isPresent() && "approved".equals(statusResponse.get().getStatus())) {
-                    // Согласие одобрено - обновляем и загружаем счета
                     var consentResponse = statusResponse.get();
 
                     String encryptedConsentId = encryptionService.encrypt(consentResponse.getConsentId());
@@ -67,7 +62,6 @@ public class ConsentStatusService {
 
                     userConsentRepository.save(consent);
 
-                    // Загружаем счета
                     String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
                     var accounts = bankApiClient.fetchAccounts(bank, decryptedConsentId, bankClientId);
 
@@ -76,10 +70,6 @@ public class ConsentStatusService {
                         accountRepository.save(account);
                     }
 
-                    log.info("✅ Pending consent approved for client {} in bank {}, loaded {} accounts",
-                            bankClientId, bank.getCode(), accounts.size());
-                } else {
-                    log.info("⏳ Consent still pending for client {} in bank {}", bankClientId, bank.getCode());
                 }
 
             } catch (Exception e) {
@@ -89,13 +79,9 @@ public class ConsentStatusService {
         }
     }
 
-    /**
-     * Эндпоинт для ручной проверки статуса
-     */
     public BankVerifyResponse checkAndUpdateConsents(String bankClientId) {
         checkPendingConsents(bankClientId);
 
-        // Проверяем текущее состояние после обновления
         List<Account> accounts = accountRepository.findByUserConsentIdIn(
                 userConsentRepository.findByBankClientId(bankClientId).stream()
                         .map(UserConsent::getId)
@@ -130,18 +116,13 @@ public class ConsentStatusService {
                 .requiresUserAction(!pendingBanks.isEmpty())
                 .build();
     }
-    /**
-     * Обрабатывает approved согласие и загружает счета
-     */
     @Transactional
     public void processApprovedConsent(String clientId, Bank bank, ConsentResponse consentResponse) {
         try {
-            // Находим pending согласие
             UserConsent consent = userConsentRepository.findByBankClientIdAndBankIdAndStatus(
                             clientId, bank.getId(), ConsentStatus.PENDING)
                     .orElseThrow(() -> new RuntimeException("Pending consent not found"));
 
-            // Обновляем согласие
             String encryptedConsentId = encryptionService.encrypt(consentResponse.getConsentId());
             consent.setConsentId(encryptedConsentId);
             consent.setStatus(ConsentStatus.ACTIVE);
@@ -150,7 +131,6 @@ public class ConsentStatusService {
 
             userConsentRepository.save(consent);
 
-            // Загружаем счета
             String decryptedConsentId = encryptionService.decrypt(encryptedConsentId);
             var accounts = bankApiClient.fetchAccounts(bank,
                     decryptedConsentId, clientId);
@@ -161,14 +141,7 @@ public class ConsentStatusService {
             }
 
             balanceService.updateBalancesForUser(clientId);
-
-            log.info("✅ Processed approved consent for client {} in bank {}, loaded {} accounts",
-                    clientId, bank.getCode(), accounts.size());
-
             notificationService.sendAccountsLoadedNotification(clientId, bank.getCode(), accounts.size());
-
-            // 🎯 Тут можно отправить уведомление
-            // notificationService.sendAccountsLoaded(clientId, bank.getCode(), accounts.size());
 
         } catch (Exception e) {
             log.error("Error processing approved consent for client {} in bank {}: {}",

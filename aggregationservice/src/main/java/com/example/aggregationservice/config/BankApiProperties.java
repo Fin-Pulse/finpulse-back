@@ -22,22 +22,16 @@ public class BankApiProperties {
 
     private Map<String, BankConfig> banks;
 
-    /**
-     * Получает конфигурацию банка по коду (case-insensitive)
-     * Поддерживает как "VBANK"/"ABANK"/"SBANK", так и "vbank"/"abank"/"sbank"
-     */
     public BankConfig getBankConfig(String bankCode) {
         if (bankCode == null || banks == null) {
             return null;
         }
         
-        // Сначала пробуем точное совпадение
         BankConfig config = banks.get(bankCode);
         if (config != null) {
             return config;
         }
         
-        // Если не найдено, ищем case-insensitive
         return banks.entrySet().stream()
                 .filter(entry -> entry.getKey().equalsIgnoreCase(bankCode))
                 .map(Map.Entry::getValue)

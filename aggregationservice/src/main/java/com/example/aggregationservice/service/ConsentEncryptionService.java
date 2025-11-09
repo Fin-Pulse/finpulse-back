@@ -49,18 +49,14 @@ public class ConsentEncryptionService {
     private byte[] getValidKey() {
         byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
 
-        // AES требует ключ длиной 16, 24 или 32 байта
         if (keyBytes.length == 16 || keyBytes.length == 24 || keyBytes.length == 32) {
             return keyBytes;
         }
 
-        // Если ключ невалидной длины - нормализуем до 16 байт
         byte[] normalizedKey = new byte[16];
         if (keyBytes.length < 16) {
-            // Дополняем нулями
             System.arraycopy(keyBytes, 0, normalizedKey, 0, keyBytes.length);
         } else {
-            // Обрезаем до 16 байт
             System.arraycopy(keyBytes, 0, normalizedKey, 0, 16);
         }
 

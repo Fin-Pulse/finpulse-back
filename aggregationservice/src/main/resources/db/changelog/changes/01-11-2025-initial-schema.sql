@@ -173,6 +173,7 @@ ALTER TABLE transactions ADD FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE transactions ADD FOREIGN KEY (bank_client_id) REFERENCES users(bank_client_id);
 ALTER TABLE categories ADD FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE categories ADD FOREIGN KEY (parent_id) REFERENCES categories(id);
+ALTER TABLE categories ADD CONSTRAINT categories_name_unique UNIQUE (name);
 ALTER TABLE budgets ADD FOREIGN KEY (user_id) REFERENCES users(id);
 ALTER TABLE budgets ADD FOREIGN KEY (category_id) REFERENCES categories(id);
 ALTER TABLE notifications ADD FOREIGN KEY (user_id) REFERENCES users(id);

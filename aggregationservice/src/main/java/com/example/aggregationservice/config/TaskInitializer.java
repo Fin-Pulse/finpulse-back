@@ -23,17 +23,14 @@ public class TaskInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         try {
-            log.info("🚀 Initializing all scheduled tasks...");
+            log.info("Initializing all scheduled tasks...");
 
-            // 🔥 Сначала обновляем кэш пользователей (не критично, если не получится)
             try {
                 userGroupService.refreshUserGroupsCache();
             } catch (Exception e) {
-                log.warn("⚠️ Failed to refresh user groups cache during initialization: {}. Will retry later.", e.getMessage());
-                // Не прерываем инициализацию задач, кэш обновится позже
+                log.warn("Failed to refresh user groups cache during initialization: {}. Will retry later.", e.getMessage());
             }
 
-            // 🔥 1. Еженедельное обновление балансов - следующее воскресенье в 2:00
             Instant nextSunday2AM = calculateNextSunday2AM();
             taskSchedulerService.scheduleTask(
                     "BALANCE_UPDATE",
@@ -41,12 +38,10 @@ public class TaskInitializer implements ApplicationRunner {
                     Map.of("scope", "ALL_USERS"),
                     nextSunday2AM
             );
-            log.info("📅 Scheduled weekly balance update for {}", nextSunday2AM);
+            log.info("Scheduled weekly balance update for {}", nextSunday2AM);
 
-            // 🔥 2. Ежедневная выгрузка транзакций по временным группам
             scheduleTransactionExportTasks();
 
-            // 🔥 3. Еженедельный ML анализ - воскресенье в 23:00
             Instant nextSunday11PM = calculateNextSunday11PM();
             taskSchedulerService.scheduleTask(
                     "ML_ANALYSIS",
@@ -54,23 +49,20 @@ public class TaskInitializer implements ApplicationRunner {
                     Map.of("analysisType", "WEEKLY_FORECAST"),
                     nextSunday11PM
             );
-            log.info("📅 Scheduled weekly ML analysis for {}", nextSunday11PM);
+            log.info("Scheduled weekly ML analysis for {}", nextSunday11PM);
 
-            log.info("🎉 All scheduled tasks initialized successfully");
+            log.info("All scheduled tasks initialized successfully");
 
         } catch (Exception e) {
-            log.error("❌ Failed to initialize scheduled tasks", e);
+            log.error("Failed to initialize scheduled tasks", e);
         }
     }
 
-    /**
-     * 🔥 Планирует 4 задачи выгрузки транзакций для временных групп
-     */
     private void scheduleTransactionExportTasks() {
-        scheduleGroupTask(TimeGroup.GROUP_00_06, 2, 30);  // 02:30
-        scheduleGroupTask(TimeGroup.GROUP_06_12, 6, 30);  // 06:30
-        scheduleGroupTask(TimeGroup.GROUP_12_18, 12, 30); // 12:30
-        scheduleGroupTask(TimeGroup.GROUP_18_00, 18, 30); // 18:30
+        scheduleGroupTask(TimeGroup.GROUP_00_06, 2, 30);
+        scheduleGroupTask(TimeGroup.GROUP_06_12, 6, 30);
+        scheduleGroupTask(TimeGroup.GROUP_12_18, 12, 30);
+        scheduleGroupTask(TimeGroup.GROUP_18_00, 18, 30);
     }
 
     private void scheduleGroupTask(TimeGroup timeGroup, int hour, int minute) {
@@ -88,12 +80,9 @@ public class TaskInitializer implements ApplicationRunner {
                 firstExecution
         );
 
-        log.info("📅 Scheduled {} export for {}:{}", timeGroup.getCode(), hour, minute);
+        log.info("Scheduled {} export for {}:{}", timeGroup.getCode(), hour, minute);
     }
 
-    /**
-     * 🔥 Рассчитывает время следующего выполнения в указанный час и минуту
-     */
     private Instant getNextExecutionTime(int hour, int minute) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime nextRun = now.withHour(hour).withMinute(minute).withSecond(0);
@@ -105,9 +94,6 @@ public class TaskInitializer implements ApplicationRunner {
         return nextRun.atZone(ZoneId.systemDefault()).toInstant();
     }
 
-    /**
-     * 🔥 Рассчитывает следующее воскресенье в 02:00
-     */
     private Instant calculateNextSunday2AM() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime nextSunday = now.with(DayOfWeek.SUNDAY).withHour(2).withMinute(0).withSecond(0);
@@ -119,9 +105,6 @@ public class TaskInitializer implements ApplicationRunner {
         return nextSunday.atZone(ZoneId.systemDefault()).toInstant();
     }
 
-    /**
-     * 🔥 Рассчитывает следующее воскресенье в 23:00
-     */
     private Instant calculateNextSunday11PM() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime nextSunday = now.with(DayOfWeek.SUNDAY).withHour(23).withMinute(0).withSecond(0);

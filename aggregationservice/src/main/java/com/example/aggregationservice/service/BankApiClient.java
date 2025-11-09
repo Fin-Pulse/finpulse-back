@@ -25,16 +25,12 @@ public class BankApiClient {
     private final RestTemplate restTemplate;
     private final BankAuthService bankAuthService;
 
-    /**
-     * Универсальный метод для вызова банковского API с автоматическим получением токена
-     */
+
     private <T> ResponseEntity<T> callBankApi(Bank bank, String url, HttpMethod method,
                                               HttpEntity<?> requestEntity, Class<T> responseType) {
         try {
-            // ✅ Автоматически получаем токен для конкретного банка
             String token = bankAuthService.getBankToken(bank.getCode());
 
-            // Клонируем headers чтобы добавить авторизацию
             HttpHeaders headers = new HttpHeaders();
             if (requestEntity.getHeaders() != null) {
                 headers.putAll(requestEntity.getHeaders());
@@ -54,9 +50,6 @@ public class BankApiClient {
         }
     }
 
-    /**
-     * Запрос согласия - БЕЗ параметра teamToken
-     */
     public Optional<ConsentResponse> requestConsent(Bank bank, String clientId) {
         String url = bank.getBaseUrl() + "/account-consents/request";
 
@@ -74,7 +67,6 @@ public class BankApiClient {
         HttpEntity<ConsentRequest> request = new HttpEntity<>(body, headers);
 
         try {
-            // ✅ Используем callBankApi который САМ получит токен
             ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.POST, request, Map.class);
 
             log.info("Bank {} response: status={}, body={}", bank.getCode(), response.getStatusCode(), response.getBody());
@@ -98,7 +90,6 @@ public class BankApiClient {
                             .autoApproved((Boolean) responseBody.get("auto_approved"))
                             .build();
 
-                    log.info("✅ Consent APPROVED for client {} in bank {}: {}", clientId, bank.getCode(), consentId);
                     return Optional.of(consentResponse);
 
                 } else if ("pending".equals(status)) {
@@ -112,7 +103,6 @@ public class BankApiClient {
                             .autoApproved(false)
                             .build();
 
-                    log.info("⏳ Consent PENDING for client {} in bank {}: {}", clientId, bank.getCode(), requestId);
                     return Optional.of(consentResponse);
                 }
             }
@@ -124,9 +114,6 @@ public class BankApiClient {
         return Optional.empty();
     }
 
-    /**
-     * Проверка статуса согласия - БЕЗ параметра teamToken
-     */
     public Optional<ConsentResponse> checkConsentStatus(Bank bank, String requestId) {
         String url = bank.getBaseUrl() + "/account-consents/" + requestId;
 
@@ -137,22 +124,14 @@ public class BankApiClient {
         HttpEntity<String> request = new HttpEntity<>(headers);
 
         try {
-            // ✅ Используем callBankApi который САМ получит токен
             ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
-
-            log.info("🔍 Checking consent status for requestId: {}", requestId);
-            log.info("📡 Response status: {}", response.getStatusCode());
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
-                log.info("📦 Response body: {}", responseBody);
-
                 Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
                 if (data != null) {
                     String status = (String) data.get("status");
                     String consentId = (String) data.get("consentId");
-
-                    log.info("🎯 Parsed - Status: {}, ConsentId: {}", status, consentId);
 
                     if ("Authorized".equals(status) && consentId != null) {
                         Instant expiresAt = Instant.parse((String) data.get("expirationDateTime"));
@@ -164,10 +143,7 @@ public class BankApiClient {
                                 .expiresAt(expiresAt)
                                 .build();
 
-                        log.info("✅ Consent authorized! ConsentId: {}, Expires: {}", consentId, expiresAt);
                         return Optional.of(consentResponse);
-                    } else {
-                        log.info("⏳ Consent status: {} for requestId: {}", status, requestId);
                     }
                 }
             }
@@ -178,9 +154,6 @@ public class BankApiClient {
         return Optional.empty();
     }
 
-    /**
-     * Получение счетов - БЕЗ параметра teamToken
-     */
     public List<Account> fetchAccounts(Bank bank, String consentId, String clientId) {
         String url = bank.getBaseUrl() + "/accounts?client_id=" + clientId;
 
@@ -191,7 +164,6 @@ public class BankApiClient {
         HttpEntity<String> request = new HttpEntity<>(headers);
 
         try {
-            // ✅ Используем callBankApi который САМ получит токен
             ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -216,7 +188,7 @@ public class BankApiClient {
                             try {
                                 account.setOpeningDate(LocalDate.parse((String) accountData.get("openingDate")));
                             } catch (Exception e) {
-                                log.warn("Failed to parse openingDate: {}", accountData.get("openingDate"));
+                                log.warn("Failed to parse openingDate Error: {}", e.getMessage());
                             }
                         }
 
@@ -231,7 +203,6 @@ public class BankApiClient {
                         accounts.add(account);
                     }
 
-                    log.info("Fetched {} accounts for consent {}", accounts.size(), consentId);
                     return accounts;
                 }
             }
@@ -242,9 +213,6 @@ public class BankApiClient {
         return Collections.emptyList();
     }
 
-    /**
-     * Получение транзакций - БЕЗ параметра teamToken
-     */
     public List<Transaction> fetchAccountTransactions(Bank bank, String consentId,
                                                       String accountId, LocalDateTime fromDate, LocalDateTime toDate) {
         String fromDateStr = fromDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -264,7 +232,6 @@ public class BankApiClient {
         HttpEntity<String> request = new HttpEntity<>(headers);
 
         try {
-            // ✅ Используем callBankApi который САМ получит токен
             ResponseEntity<BankTransactionResponse> response = callBankApi(bank, url, HttpMethod.GET, request, BankTransactionResponse.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -279,10 +246,8 @@ public class BankApiClient {
                     BigDecimal absoluteAmount = amount.abs();
                     String creditDebitIndicator = bankTx.getCreditDebitIndicator();
                     
-                    // Вычисляем is_expense: true для Debit, false для Credit
                     Boolean isExpense = "Debit".equalsIgnoreCase(creditDebitIndicator);
 
-                    // Определяем категорию
                     String category = determineCategory(bankTx);
 
                     Transaction transaction = Transaction.builder()
@@ -298,19 +263,15 @@ public class BankApiClient {
                     transactions.add(transaction);
                 }
 
-                log.info("✅ Fetched {} transactions for account {}", transactions.size(), accountId);
                 return transactions;
             }
         } catch (Exception e) {
-            log.error("❌ Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
+            log.error("Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
         }
 
         return Collections.emptyList();
     }
 
-    /**
-     * Получение баланса - БЕЗ параметра teamToken
-     */
     public Optional<Map<String, Object>> fetchAccountBalance(Bank bank, String consentId, String accountId) {
         String url = bank.getBaseUrl() + "/accounts/" + accountId + "/balances";
 
@@ -321,7 +282,6 @@ public class BankApiClient {
         HttpEntity<String> request = new HttpEntity<>(headers);
 
         try {
-            // ✅ Используем callBankApi который САМ получит токен
             ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -334,9 +294,6 @@ public class BankApiClient {
         return Optional.empty();
     }
 
-    /**
-     * Старый метод для обратной совместимости (можно удалить после обновления всех сервисов)
-     */
     @Deprecated
     public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
                                                     LocalDateTime fromDate, LocalDateTime toDate) {
@@ -356,7 +313,6 @@ public class BankApiClient {
         );
     }
 
-    // Вспомогательные методы (оставляем без изменений)
     private Instant parseDateTime(String dateTimeStr) {
         if (dateTimeStr == null) return Instant.now();
 
@@ -413,9 +369,6 @@ public class BankApiClient {
         }
     }
 
-    /**
-     * Парсит сумму из Amount объекта
-     */
     private BigDecimal parseAmount(BankTransactionResponse.Transaction.Amount amount) {
         if (amount == null || amount.getAmount() == null) {
             return BigDecimal.ZERO;
@@ -428,9 +381,6 @@ public class BankApiClient {
         }
     }
 
-    /**
-     * Парсит дату бронирования
-     */
     private LocalDateTime parseBookingDate(String bookingDateTime) {
         if (bookingDateTime == null) {
             return LocalDateTime.now();
@@ -449,20 +399,11 @@ public class BankApiClient {
     }
 
 
-    /**
-     * Определяет категорию транзакции
-     * 1. Если есть merchant.category - используем её
-     * 2. Если есть merchant.mccCode - определяем по MCC
-     * 3. Если есть transactionInformation - пытаемся определить по описанию
-     * 4. Иначе - "other"
-     */
     private String determineCategory(BankTransactionResponse.Transaction bankTx) {
-        // 1. Проверяем merchant.category
         if (bankTx.getMerchant() != null && bankTx.getMerchant().getCategory() != null) {
             return bankTx.getMerchant().getCategory();
         }
 
-        // 2. Проверяем MCC код
         if (bankTx.getMerchant() != null && bankTx.getMerchant().getMccCode() != null) {
             String categoryByMcc = getCategoryByMcc(bankTx.getMerchant().getMccCode());
             if (categoryByMcc != null) {
@@ -470,7 +411,6 @@ public class BankApiClient {
             }
         }
 
-        // 3. Пытаемся определить по описанию транзакции
         if (bankTx.getTransactionInformation() != null) {
             String categoryByDescription = getCategoryByDescription(bankTx.getTransactionInformation());
             if (categoryByDescription != null) {
@@ -478,18 +418,13 @@ public class BankApiClient {
             }
         }
 
-        // 4. Для кредитных транзакций (зарплата и т.д.)
         if ("Credit".equals(bankTx.getCreditDebitIndicator())) {
             return "income";
         }
 
-        // 5. По умолчанию
         return "other";
     }
 
-    /**
-     * Определяет категорию по MCC коду
-     */
     private String getCategoryByMcc(String mccCode) {
         if (mccCode == null) return null;
 
@@ -516,41 +451,33 @@ public class BankApiClient {
         }
     }
 
-    /**
-     * Определяет категорию по описанию транзакции
-     */
     private String getCategoryByDescription(String description) {
         if (description == null) return null;
 
         String descLower = description.toLowerCase();
 
-        // Транспорт
         if (descLower.contains("транспорт") || descLower.contains("метро") ||
             descLower.contains("автобус") || descLower.contains("такси") ||
             descLower.contains("uber") || descLower.contains("yandex")) {
             return "transport";
         }
 
-        // Зарплата
         if (descLower.contains("зарплата") || descLower.contains("salary") ||
             descLower.contains("заработная плата")) {
             return "income";
         }
 
-        // Продукты
         if (descLower.contains("пятёрочка") || descLower.contains("лента") ||
             descLower.contains("ашан") || descLower.contains("перекрёсток") ||
             descLower.contains("дикси") || descLower.contains("вкусвилл")) {
             return "grocery";
         }
 
-        // Кафе
         if (descLower.contains("starbucks") || descLower.contains("кофе") ||
             descLower.contains("шоколадница") || descLower.contains("coffee")) {
             return "cafe";
         }
 
-        // Рестораны
         if (descLower.contains("макдоналдс") || descLower.contains("mcdonald") ||
             descLower.contains("сбарро") || descLower.contains("ресторан")) {
             return "restaurant";

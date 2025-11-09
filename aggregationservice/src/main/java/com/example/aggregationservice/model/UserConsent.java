@@ -23,7 +23,7 @@ public class UserConsent {
     @Column(name = "consent_id")
     private String consentId;
 
-    @Column(name = "request_id")  // Добавим для отслеживания pending-согласий
+    @Column(name = "request_id")
     private String requestId;
 
     @Enumerated(EnumType.STRING)

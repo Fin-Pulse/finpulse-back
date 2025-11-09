@@ -18,16 +18,13 @@ public class BankAuthController {
 
     private final BankAuthService bankAuthService;
 
-    /**
-     * Получает токен для конкретного банка
-     */
     @GetMapping("/{bankCode}/token")
     public ResponseEntity<Map<String, String>> getBankToken(@PathVariable String bankCode) {
         try {
             String token = bankAuthService.getBankToken(bankCode);
             return ResponseEntity.ok(Map.of(
                     "bank_code", bankCode,
-                    "access_token", "***" + token.substring(token.length() - 8), // ✅ МАСКИРУЕМ токен
+                    "access_token", "***" + token.substring(token.length() - 8),
                     "token_type", "bearer",
                     "source", "redis_cache"
             ));
@@ -41,16 +38,13 @@ public class BankAuthController {
         }
     }
 
-    /**
-     * Принудительно обновляет токен для конкретного банка
-     */
     @PostMapping("/{bankCode}/refresh")
     public ResponseEntity<Map<String, String>> refreshBankToken(@PathVariable String bankCode) {
         try {
             String token = bankAuthService.refreshAndCacheToken(bankCode);
             return ResponseEntity.ok(Map.of(
                     "bank_code", bankCode,
-                    "access_token", "***" + token.substring(token.length() - 8), // ✅ МАСКИРУЕМ токен
+                    "access_token", "***" + token.substring(token.length() - 8),
                     "token_type", "bearer",
                     "message", "Token refreshed successfully"
             ));
@@ -64,9 +58,6 @@ public class BankAuthController {
         }
     }
 
-    /**
-     * Статус токенов для всех банков
-     */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getAllBanksTokenStatus() {
         try {
@@ -101,9 +92,6 @@ public class BankAuthController {
         }
     }
 
-    /**
-     * Статус токена для конкретного банка
-     */
     @GetMapping("/{bankCode}/status")
     public ResponseEntity<Map<String, Object>> getBankTokenStatus(@PathVariable String bankCode) {
         try {

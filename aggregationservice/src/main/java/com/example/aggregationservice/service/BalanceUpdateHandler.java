@@ -1,8 +1,6 @@
 package com.example.aggregationservice.service;
 
 import com.example.aggregationservice.model.ScheduledTask;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,10 +26,10 @@ public class BalanceUpdateHandler implements TaskHandler {
 
             String clientId = (String) taskData.get("clientId");
             if (clientId != null) {
-                log.info("🔄 Updating balances for user: {}", clientId);
+                log.info("Updating balances for user: {}", clientId);
                 balanceService.updateBalancesForUser(clientId);
             } else {
-                log.info("🔄 Updating balances for all users");
+                log.info("Updating balances for all users");
                 balanceService.updateAllBalances();
             }
         } catch (Exception e) {
