@@ -3,14 +3,17 @@ package com.example.aggregationservice.service;
 import com.example.aggregationservice.model.Bank;
 import com.example.aggregationservice.dto.*;
 import com.example.aggregationservice.model.Account;
+import com.example.aggregationservice.model.Transaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -20,6 +23,88 @@ import java.util.*;
 public class BankApiClient {
 
     private final RestTemplate restTemplate;
+
+    public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
+                                                    LocalDateTime fromDate, LocalDateTime toDate) {
+        log.info("🏦 Fetching transactions for account {} (client: {}) from {} to {}",
+                accountId, bankClientId, fromDate, toDate);
+
+        // Заглушка для тестирования - будет реализовано позже
+        return List.of(
+                Transaction.builder()
+                        .externalTransactionId("TX_" + System.currentTimeMillis())
+                        .amount(new BigDecimal("100.50"))
+                        .currency("RUB")
+                        .creditDebitIndicator("CREDIT")
+                        .status("Booked")
+                        .bookingDate(LocalDateTime.now())
+                        .transactionInformation("Test transaction from Bank API")
+                        .build()
+        );
+    }
+
+    /**
+     * Получает транзакции через Bank API используя consentId и teamToken
+     */
+    public List<Transaction> fetchAccountTransactions(Bank bank, String teamToken, String consentId,
+                                                      String accountId, LocalDateTime fromDate, LocalDateTime toDate) {
+        // Форматируем даты в ISO 8601 формат для API (YYYY-MM-DDTHH:mm:ss)
+        String fromDateStr = fromDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        String toDateStr = toDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        
+        // URL encoding для параметров
+        String encodedFromDate = java.net.URLEncoder.encode(fromDateStr, java.nio.charset.StandardCharsets.UTF_8);
+        String encodedToDate = java.net.URLEncoder.encode(toDateStr, java.nio.charset.StandardCharsets.UTF_8);
+        
+        String url = bank.getBaseUrl() + "/accounts/" + accountId + "/transactions" +
+                "?fromBookingDate=" + encodedFromDate +
+                "&toBookingDate=" + encodedToDate;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(teamToken);
+        headers.set("X-Requesting-Bank", "team214");
+        headers.set("X-Consent-ID", consentId);
+        headers.set("Accept", "application/json");
+
+        try {
+            ResponseEntity<BankTransactionResponse> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), BankTransactionResponse.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                BankTransactionResponse responseBody = response.getBody();
+                List<com.example.aggregationservice.dto.BankTransaction> bankTransactions =
+                        responseBody.getData() != null ? responseBody.getData().getTransactions() : Collections.emptyList();
+
+                List<Transaction> transactions = new ArrayList<>();
+                for (com.example.aggregationservice.dto.BankTransaction bankTx : bankTransactions) {
+                    Transaction transaction = Transaction.builder()
+                            .externalTransactionId(bankTx.getTransactionId())
+                            .amount(bankTx.getAmount() != null ? bankTx.getAmount().getAmountAsBigDecimal() : BigDecimal.ZERO)
+                            .currency(bankTx.getAmount() != null ? bankTx.getAmount().getCurrency() : "RUB")
+                            .creditDebitIndicator(bankTx.getCreditDebitIndicator())
+                            .status(bankTx.getStatus())
+                            .bookingDate(bankTx.getBookingDateTime() != null ?
+                                    LocalDateTime.ofInstant(bankTx.getBookingDateTime(), java.time.ZoneId.systemDefault()) :
+                                    LocalDateTime.now())
+                            .valueDate(bankTx.getValueDateTime() != null ?
+                                    LocalDateTime.ofInstant(bankTx.getValueDateTime(), java.time.ZoneId.systemDefault()) :
+                                    null)
+                            .transactionInformation(bankTx.getTransactionInformation())
+                            .bankTransactionCode(bankTx.getBankTransactionCode() != null ?
+                                    bankTx.getBankTransactionCode().getCode() : null)
+                            .build();
+                    transactions.add(transaction);
+                }
+
+                log.info("✅ Fetched {} transactions for account {}", transactions.size(), accountId);
+                return transactions;
+            }
+        } catch (Exception e) {
+            log.error("❌ Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
+        }
+
+        return Collections.emptyList();
+    }
 
     public Optional<ConsentResponse> requestConsent(Bank bank, String teamToken, String clientId) {
         String url = bank.getBaseUrl() + "/account-consents/request";
