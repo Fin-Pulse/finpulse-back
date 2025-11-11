@@ -1,4 +1,4 @@
-package com.example.aggregationservice.config;
+package com.example.notificationservice.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,15 +14,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(authz -> authz
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**",
+                                "/webjars/**", "/swagger-resources/**").permitAll()
+
+                        .requestMatchers("/ws/**", "/topic/**", "/app/**", "/user/**").permitAll()
+
                         .anyRequest().permitAll()
                 )
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(headers -> headers
-                        .frameOptions().disable()
-                        .contentSecurityPolicy("default-src 'self'")
-                );
+                .headers(headers -> headers.frameOptions().disable())
+                .cors(cors -> cors.disable());
 
         return http.build();
     }
