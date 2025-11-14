@@ -120,6 +120,7 @@ public class UserVerificationService {
         if (!allAccounts.isEmpty()) {
             try {
                 balanceService.updateBalancesForUser(bankClientId);
+                transactionService.exportHistoricalTransactions(bankClientId, 4);
                 sendToMlService(bankClientId, "INITIAL_FORECAST");
 
             } catch (Exception e) {

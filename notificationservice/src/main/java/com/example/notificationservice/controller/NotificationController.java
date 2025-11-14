@@ -25,74 +25,37 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final NotificationCoordinator notificationCoordinator;
 
-
-    @Operation(summary = "Получить все уведомления пользователя",
-            description = "Возвращает список всех уведомлений пользователя, отсортированных по дате создания (новые сначала)")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешное получение списка уведомлений"),
-            @ApiResponse(responseCode = "404", description = "Пользователь не найден")
-    })
+    @Operation(summary = "Получить все уведомления пользователя")
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Notification>> getUserNotifications(
-            @Parameter(description = "UUID пользователя", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable UUID userId) {
-        List<Notification> notifications = notificationService.getUserNotifications(userId);
+    public ResponseEntity<List<Notification>> getUserNotifications(@PathVariable String userId) {
+        List<Notification> notifications = notificationService.getUserNotifications(UUID.fromString(userId));
         return ResponseEntity.ok(notifications);
     }
 
-    @Operation(summary = "Получить непрочитанные уведомления",
-            description = "Возвращает список непрочитанных уведомлений пользователя")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешное получение непрочитанных уведомлений"),
-            @ApiResponse(responseCode = "404", description = "Пользователь не найден")
-    })
+    @Operation(summary = "Получить непрочитанные уведомления")
     @GetMapping("/user/{userId}/unread")
-    public ResponseEntity<List<Notification>> getUnreadNotifications(
-            @Parameter(description = "UUID пользователя", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable UUID userId) {
-        List<Notification> notifications = notificationService.getUnreadNotifications(userId);
+    public ResponseEntity<List<Notification>> getUnreadNotifications(@PathVariable String userId) {
+        List<Notification> notifications = notificationService.getUnreadNotifications(UUID.fromString(userId));
         return ResponseEntity.ok(notifications);
     }
 
-    @Operation(summary = "Получить количество непрочитанных уведомлений",
-            description = "Возвращает количество непрочитанных уведомлений пользователя")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Успешное получение количества"),
-            @ApiResponse(responseCode = "404", description = "Пользователь не найден")
-    })
+    @Operation(summary = "Получить количество непрочитанных уведомлений")
     @GetMapping("/user/{userId}/unread-count")
-    public ResponseEntity<Long> getUnreadCount(
-            @Parameter(description = "UUID пользователя", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable UUID userId) {
-        Long count = notificationService.getUnreadCount(userId);
+    public ResponseEntity<Long> getUnreadCount(@PathVariable String userId) {
+        Long count = notificationService.getUnreadCount(UUID.fromString(userId));
         return ResponseEntity.ok(count);
     }
 
-    @Operation(summary = "Отметить уведомление как прочитанное",
-            description = "Отмечает уведомление как прочитанное по его ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Уведомление успешно отмечено как прочитанное"),
-            @ApiResponse(responseCode = "404", description = "Уведомление не найдено")
-    })
+    @Operation(summary = "Отметить уведомление как прочитанное")
     @PutMapping("/{notificationId}/read")
-    public ResponseEntity<Notification> markAsRead(
-            @Parameter(description = "UUID уведомления", example = "123e4567-e89b-12d3-a456-426614174000")
-            @PathVariable UUID notificationId) {
+    public ResponseEntity<Notification> markAsRead(@PathVariable UUID notificationId) {
         Notification notification = notificationService.markAsRead(notificationId);
         return ResponseEntity.ok(notification);
     }
 
-
-    @Operation(summary = "Создать новое уведомление",
-            description = "Создает новое уведомление для пользователя и отправляет через WebSocket")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Уведомление успешно создано"),
-            @ApiResponse(responseCode = "400", description = "Неверные данные запроса")
-    })
+    @Operation(summary = "Создать новое уведомление")
     @PostMapping
-    public ResponseEntity<Notification> createNotification(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Данные для создания уведомления")
-            @RequestBody CreateNotificationRequest request) {
+    public ResponseEntity<Notification> createNotification(@RequestBody CreateNotificationRequest request) {
         Notification notification = notificationCoordinator.createNotificationWithWebSocket(request);
         return ResponseEntity.ok(notification);
     }
