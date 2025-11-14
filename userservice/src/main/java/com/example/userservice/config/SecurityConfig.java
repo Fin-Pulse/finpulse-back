@@ -17,16 +17,13 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger документация
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**",
                                 "/webjars/**", "/swagger-resources/**").permitAll()
 
-                        // Все эндпоинты разрешены - аутентификация в Gateway
                         .anyRequest().permitAll()
                 )
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Убираем CORS - он обрабатывается в Gateway
                 .cors(cors -> cors.disable());
 
         return http.build();
