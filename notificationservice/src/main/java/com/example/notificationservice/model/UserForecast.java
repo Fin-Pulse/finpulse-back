@@ -53,7 +53,7 @@ public class UserForecast {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "chart_urls", columnDefinition = "jsonb")
-    private Map<String, String> chartUrls;
+    private Map<String, Object> chartUrls;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

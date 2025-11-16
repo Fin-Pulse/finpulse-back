@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.security.Key;
 import java.util.Date;
 
 @Component
@@ -16,40 +17,37 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private Key getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes()); // raw bytes, как в userservice
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
                     .build()
-                    .parseSignedClaims(token);
-            return !isTokenExpired(token);
+                    .parseClaimsJws(token);
+            return true;
         } catch (Exception e) {
             return false;
         }
     }
 
     public String extractUserId(String token) {
-        return extractAllClaims(token).get("userId", String.class);
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getSubject(); // subject = userId
     }
 
     public String extractEmail(String token) {
-        return extractAllClaims(token).getSubject();
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
                 .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    private boolean isTokenExpired(String token) {
-        return extractAllClaims(token).getExpiration().before(new Date());
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("email", String.class);
     }
 }

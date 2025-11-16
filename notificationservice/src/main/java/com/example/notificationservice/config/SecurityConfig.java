@@ -6,6 +6,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -15,25 +20,39 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger документация
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**",
                                 "/webjars/**", "/swagger-resources/**").permitAll()
-
-                        // WebSocket endpoints - разрешаем без аутентификации (Gateway уже проверил)
                         .requestMatchers("/ws/**", "/topic/**", "/app/**", "/user/**").permitAll()
-
-                        // REST API - разрешаем все (аутентификация в Gateway)
                         .requestMatchers("/api/notifications/**").permitAll()
-
                         .anyRequest().permitAll()
                 )
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Для WebSocket нужно отключить frameOptions
                 .headers(headers -> headers.frameOptions().disable())
-                // CORS обрабатывается в Gateway
-                .cors(cors -> cors.disable());
+                .cors();
 
         return http.build();
+    }
+
+    @Bean
+    public CorsFilter corsFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost",
+                "http://127.0.0.1",
+                "http://localhost:80",
+                "http://127.0.0.1:80"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        return new CorsFilter(source);
     }
 }

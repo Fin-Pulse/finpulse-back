@@ -30,22 +30,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOriginPatterns("*") // Gateway уже проверил CORS
                 .withSockJS();
 
-        registry.addEndpoint("/ws/notifications")
-                .addInterceptors(authInterceptor)
-                .setHandshakeHandler(handshakeHandler)
-                .setAllowedOriginPatterns("*");
-
         registry.addEndpoint("/ws/forecasts")
                 .addInterceptors(authInterceptor)
                 .setHandshakeHandler(handshakeHandler)
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
 
-        registry.addEndpoint("/ws/forecasts")
-                .addInterceptors(authInterceptor)
-                .setHandshakeHandler(handshakeHandler)
-                .setAllowedOriginPatterns("*");
-
-        log.info("WebSocket endpoints registered: /ws/notifications, /ws/forecasts");
     }
 }

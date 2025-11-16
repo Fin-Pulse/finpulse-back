@@ -8,15 +8,13 @@ spring:
           '[/**]':
             allowed-origin-patterns:
               - "http://localhost"
-              - "http://localhost:80"
               - "http://127.0.0.1"
-              - "http://127.0.0.1:80"
             allowed-methods:
-                - GET
-                - POST
-                - PUT
-                - DELETE
-                - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
             allowed-headers: "*"
             allow-credentials: true
       httpclient:
@@ -52,7 +50,7 @@ aggregation:
     url: ${AGGREGATION_SERVICE_URL:http://aggregationservice:8082}
 
 jwt:
-  secret: ${JWT_SECRET:mySuperSecretKeyThatIsAtLeast32CharactersLong123!}
+  secret: ${JWT_SECRET:EY4ZdvgJ4wnFjpeKYA2qmnCztsMR4wMAICMw7wrnSIaTRYCm51BWOaPmNtrn3n90}
 
 logging:
   level:
