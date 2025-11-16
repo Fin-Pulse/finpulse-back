@@ -22,7 +22,9 @@ public class ForecastDto {
     private String forecastMethod;
     private LocalDate forecastWeekStart;
     private Map<String, Object> fullForecastData;
-    private Map<String, String> chartUrls;
+    private Map<String, Object> chartUrls;
 }
+
+
 
 

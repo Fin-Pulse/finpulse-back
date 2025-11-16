@@ -17,7 +17,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
-
     }
 
     @Override
@@ -28,24 +27,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws/notifications")
                 .addInterceptors(authInterceptor)
                 .setHandshakeHandler(handshakeHandler)
-                .setAllowedOriginPatterns("*")
+                .setAllowedOriginPatterns("*") // Gateway уже проверил CORS
                 .withSockJS();
-
-        registry.addEndpoint("/ws/notifications")
-                .addInterceptors(authInterceptor)
-                .setHandshakeHandler(handshakeHandler)
-                .setAllowedOriginPatterns("*");
 
         registry.addEndpoint("/ws/forecasts")
                 .addInterceptors(authInterceptor)
                 .setHandshakeHandler(handshakeHandler)
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
-
-        registry.addEndpoint("/ws/forecasts")
-                .addInterceptors(authInterceptor)
-                .setHandshakeHandler(handshakeHandler)
-                .setAllowedOriginPatterns("*");
 
     }
 }

@@ -31,7 +31,6 @@ public class BalanceService {
 
     @Transactional
     public void updateBalancesForUser(String bankClientId) {
-        log.info("Updating balances for user: {}", bankClientId);
 
         List<UserConsent> activeConsents = userConsentRepository.findByBankClientIdAndStatus(
                 bankClientId, ConsentStatus.ACTIVE);
@@ -47,7 +46,6 @@ public class BalanceService {
                     updateAccountBalance(account, bank, consent);
                 }
 
-                log.info("Updated balances for {} accounts in bank {}", accounts.size(), bank.getCode());
 
             } catch (Exception e) {
                 log.error("Error updating balances for consent {}: {}", consent.getId(), e.getMessage());
@@ -104,19 +102,15 @@ public class BalanceService {
 
     @Transactional
     public void updateAllBalances() {
-        log.info("Starting periodic balance update for all users");
 
         List<String> bankClientIds = userConsentRepository.findDistinctBankClientIdsWithActiveConsents();
 
         for (String bankClientId : bankClientIds) {
             try {
                 updateBalancesForUser(bankClientId);
-                log.info("Updated balances for user: {}", bankClientId);
             } catch (Exception e) {
                 log.error("Failed to update balances for user {}: {}", bankClientId, e.getMessage());
             }
         }
-
-        log.info("Completed periodic balance update for {} users", bankClientIds.size());
     }
 }

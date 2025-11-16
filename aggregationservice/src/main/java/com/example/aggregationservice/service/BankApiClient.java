@@ -69,8 +69,6 @@ public class BankApiClient {
         try {
             ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.POST, request, Map.class);
 
-            log.info("Bank {} response: status={}, body={}", bank.getCode(), response.getStatusCode(), response.getBody());
-
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
 
@@ -428,23 +426,22 @@ public class BankApiClient {
     private String getCategoryByMcc(String mccCode) {
         if (mccCode == null) return null;
 
-        // Основные MCC коды
         switch (mccCode) {
-            case "5411": // Супермаркеты
+            case "5411":
                 return "grocery";
-            case "5812": // Рестораны
+            case "5812":
                 return "restaurant";
-            case "5814": // Кафе
+            case "5814":
                 return "cafe";
-            case "5651": // Одежда
+            case "5651":
                 return "clothing";
-            case "5541": // АЗС
+            case "5541":
                 return "gas";
-            case "4814": // Телекоммуникации
+            case "4814":
                 return "telecom";
-            case "4900": // Коммунальные услуги
+            case "4900":
                 return "utilities";
-            case "5999": // Разное
+            case "5999":
                 return "other";
             default:
                 return null;

@@ -18,32 +18,49 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
 
-        URI uri = request.getURI();
-        String query = uri.getQuery();
-        String userId = extractUserIdFromQuery(query);
-
-        if (userId != null) {
-            String validatedUserId = validateAndCorrectUserId(userId);
-
-            if (validatedUserId != null) {
-
-                attributes.put("userId", validatedUserId);
-
-                if (request instanceof ServletServerHttpRequest) {
-                    ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
-                    servletRequest.getServletRequest().setAttribute("userId", validatedUserId);
-                }
-
-                return true;
-            } else {
-                log.error("WebSocket handshake - Invalid userId format: {}", userId);
-            }
+        String userId = extractUserIdFromHeaders(request);
+        if (userId == null) {
+            userId = extractUserIdFromQuery(request.getURI());
         }
 
-        return true;
+        if (userId == null) {
+            log.warn("WebSocket handshake - No userId found in headers or query parameters");
+            return true;
+        }
+
+        String validatedUserId = validateAndCorrectUserId(userId);
+        if (validatedUserId != null) {
+            attributes.put("userId", validatedUserId);
+
+            if (request instanceof ServletServerHttpRequest) {
+                ServletServerHttpRequest servletRequest = (ServletServerHttpRequest) request;
+                servletRequest.getServletRequest().setAttribute("userId", validatedUserId);
+            }
+
+            return true;
+        } else {
+            log.error("WebSocket handshake - Invalid userId format: {}", userId);
+            return false;
+        }
     }
 
-    private String extractUserIdFromQuery(String query) {
+    /**
+     * Извлекает userId из заголовков, которые устанавливает API Gateway
+     */
+    private String extractUserIdFromHeaders(ServerHttpRequest request) {
+        String userId = request.getHeaders().getFirst("X-User-Id");
+        if (userId != null && !userId.isEmpty()) {
+            log.debug("Found userId in headers: {}", userId);
+            return userId;
+        }
+        return null;
+    }
+
+    /**
+     * Извлекает userId из query параметров (для обратной совместимости)
+     */
+    private String extractUserIdFromQuery(URI uri) {
+        String query = uri.getQuery();
         if (query == null || query.isEmpty()) {
             return null;
         }
@@ -53,18 +70,16 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             for (String param : params) {
                 if (param.startsWith("userId=")) {
                     String userId = param.substring(7);
-
                     if (userId.contains("%")) {
                         userId = java.net.URLDecoder.decode(userId, "UTF-8");
                     }
-
+                    log.debug("Found userId in query: {}", userId);
                     return userId;
                 }
             }
         } catch (Exception e) {
             log.error("Error extracting userId from query: {}", e.getMessage());
         }
-
         return null;
     }
 
@@ -100,6 +115,8 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
                                WebSocketHandler wsHandler, Exception exception) {
         if (exception != null) {
             log.error("WebSocket handshake failed: {}", exception.getMessage());
+        } else {
+            log.debug("WebSocket handshake completed successfully");
         }
     }
 }

@@ -1,4 +1,3 @@
-// config/RedisConfig.java
 package com.example.aggregationservice.config;
 
 import org.springframework.beans.factory.annotation.Value;

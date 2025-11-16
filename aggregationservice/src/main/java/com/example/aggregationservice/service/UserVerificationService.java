@@ -104,8 +104,6 @@ public class UserVerificationService {
                     allAccounts.add(account);
                 }
 
-                log.info("Found {} accounts in bank {}", bankAccounts.size(), bank.getCode());
-
                 if (verifiedBank == null) {
                     verifiedBank = bank.getCode();
                     consentId = consentResponse.getConsentId();
@@ -120,6 +118,7 @@ public class UserVerificationService {
         if (!allAccounts.isEmpty()) {
             try {
                 balanceService.updateBalancesForUser(bankClientId);
+                transactionService.exportHistoricalTransactions(bankClientId, 4);
                 sendToMlService(bankClientId, "INITIAL_FORECAST");
 
             } catch (Exception e) {

@@ -124,7 +124,7 @@ public class BankConsentHandler implements TaskHandler {
                 "currentCheck", nextCheck
         );
 
-        Instant nextExecution = Instant.now().plusSeconds(120); // Через 2 минуты
+        Instant nextExecution = Instant.now().plusSeconds(120);
 
         taskSchedulerService.scheduleTask(
                 "BANK_CONSENT_MONITORING",

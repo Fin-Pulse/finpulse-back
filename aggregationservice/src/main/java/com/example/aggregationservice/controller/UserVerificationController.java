@@ -37,15 +37,14 @@ public class UserVerificationController {
 
     private void scheduleBankMonitoringTasks(String clientId, List<PendingBank> pendingBanks) {
         for (PendingBank pendingBank : pendingBanks) {
-            // Создаем задачу для проверки каждые 2 минуты в течение 24 часов
             Map<String, Object> taskData = Map.of(
                     "clientId", clientId,
                     "bankCode", pendingBank.getBankCode(),
                     "requestId", pendingBank.getRequestId(),
-                    "maxChecks", 720 // 24 часа * 60 минут / 2 минуты
+                    "maxChecks", 720
             );
 
-            Instant firstCheck = Instant.now().plusSeconds(120); // Первая проверка через 2 минуты
+            Instant firstCheck = Instant.now().plusSeconds(120);
 
             taskSchedulerService.scheduleTask(
                     "BANK_CONSENT_MONITORING",
