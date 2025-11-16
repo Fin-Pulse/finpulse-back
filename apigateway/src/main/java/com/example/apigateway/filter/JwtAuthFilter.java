@@ -34,7 +34,6 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getPath().toString();
 
-            // Пропускаем аутентификацию для публичных эндпоинтов
             if (isPublicEndpoint(path)) {
                 return chain.filter(exchange);
             }
@@ -55,10 +54,11 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 String userId = jwtUtil.extractUserId(token);
                 String email = jwtUtil.extractEmail(token);
 
-                // Добавляем user context в headers для downstream services
+                // Пробрасываем токен и добавляем user context
                 ServerHttpRequest modifiedRequest = request.mutate()
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email)
+                        .header("Authorization", authHeader) // <- ключевой момент
                         .build();
 
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
@@ -82,6 +82,5 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
     }
 
     public static class Config {
-        // Конфигурационные параметры
     }
 }

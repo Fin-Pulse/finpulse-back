@@ -23,7 +23,6 @@ public class WebSocketNotificationService {
 
     public void sendNotificationToUser(UUID userId, NotificationDto notification) {
         String destination = "/queue/notifications";
-        log.info("Sending notification to user {}: {}", userId, notification);
         messagingTemplate.convertAndSendToUser(
                 userId.toString(),
                 destination,

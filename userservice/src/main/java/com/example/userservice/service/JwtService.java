@@ -1,9 +1,13 @@
 package com.example.userservice.service;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.security.Key;
 import java.util.Date;
 import java.util.UUID;
@@ -11,11 +15,8 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret:defaultSecretKeyForHackathon123}")
-    private String secret;
-
-    @Value("${jwt.expiration:86400000}")
-    private Long expiration;
+    private String secret = "EY4ZdvgJ4wnFjpeKYA2qmnCztsMR4wMAICMw7wrnSIaTRYCm51BWOaPmNtrn3n90";
+    private Long expiration = 86400000L;
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
@@ -27,7 +28,7 @@ public class JwtService {
                 .claim("email", email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .signWith(getSigningKey())
                 .compact();
     }
 

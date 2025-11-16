@@ -57,12 +57,18 @@ public class ForecastService {
             return;
         }
 
-        forecast.getChartUrls().forEach((key, path) -> {
-            if (path != null && !path.startsWith("http")) {
-                String fullUrl = minioPublicUrl.endsWith("/")
-                        ? minioPublicUrl + path
-                        : minioPublicUrl + "/" + path;
-                forecast.getChartUrls().put(key, fullUrl);
+        forecast.getChartUrls().forEach((key, o) -> {
+            try{
+                String path = (String) o;
+                if (path != null && !path.startsWith("http")) {
+                    String fullUrl = minioPublicUrl.endsWith("/")
+                            ? minioPublicUrl + path
+                            : minioPublicUrl + "/" + path;
+                    forecast.getChartUrls().put(key, fullUrl);
+                }
+            }
+            catch (Exception ex){
+
             }
         });
     }

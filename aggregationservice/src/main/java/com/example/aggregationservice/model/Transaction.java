@@ -1,4 +1,3 @@
-// model/Transaction.java
 package com.example.aggregationservice.model;
 
 import lombok.*;

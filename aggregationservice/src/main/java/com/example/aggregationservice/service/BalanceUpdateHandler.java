@@ -26,10 +26,8 @@ public class BalanceUpdateHandler implements TaskHandler {
 
             String clientId = (String) taskData.get("clientId");
             if (clientId != null) {
-                log.info("Updating balances for user: {}", clientId);
                 balanceService.updateBalancesForUser(clientId);
             } else {
-                log.info("Updating balances for all users");
                 balanceService.updateAllBalances();
             }
         } catch (Exception e) {

@@ -37,7 +37,6 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
                 servletRequest.getServletRequest().setAttribute("userId", validatedUserId);
             }
 
-            log.info("WebSocket handshake - User authenticated: {}", validatedUserId);
             return true;
         } else {
             log.error("WebSocket handshake - Invalid userId format: {}", userId);

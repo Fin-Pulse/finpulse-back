@@ -11,8 +11,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
 @Configuration
 public class GatewayConfig {
@@ -40,49 +39,30 @@ public class GatewayConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // User Service Routes - публичные эндпоинты
                 .route("user-service-auth", r -> r.path("/api/bank/auth/**")
                         .uri(userServiceUrl))
-
-                // User Service Routes - защищенные эндпоинты
                 .route("user-service-users", r -> r.path("/api/bank/users/**")
                         .filters(f -> f.filter(jwtGatewayFilter()))
                         .uri(userServiceUrl))
-
-                // Notification Service REST Routes
                 .route("notification-service-rest", r -> r.path("/api/notifications/**")
                         .filters(f -> f.filter(jwtGatewayFilter()))
                         .uri(notificationServiceUrl))
-
-                // Notification Service WebSocket Routes
                 .route("notification-service-ws", r -> r.path("/ws/notifications/**")
                         .uri(notificationServiceUrl))
-
-                // ✅ Forecast Service WebSocket - БЕЗ rewritePath
                 .route("forecast-service-ws", r -> r.path("/ws/forecasts/**")
                         .uri(notificationServiceUrl))
-
-                // Aggregation Service Routes
                 .route("aggregation-service", r -> r.path("/api/verification/**")
                         .filters(f -> f.filter(jwtGatewayFilter()))
                         .uri(aggregationServiceUrl))
-
                 .build();
     }
 
-    // ✅ ДОБАВИТЬ CORS конфигурацию
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
-        corsConfig.setAllowedOrigins(Arrays.asList(
-                "http://localhost",
-                "http://localhost:80",
-                "http://127.0.0.1",
-                "http://127.0.0.1:80"
-        ));
-        corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        corsConfig.setAllowedHeaders(Arrays.asList("*"));
-
+        corsConfig.setAllowedOrigins(List.of("http://localhost", "http://127.0.0.1"));
+        corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        corsConfig.setAllowedHeaders(List.of("*"));
         corsConfig.setAllowCredentials(true);
         corsConfig.setMaxAge(3600L);
 

@@ -31,7 +31,6 @@ public class WebSocketController {
         }
 
         String userId = principal.getName();
-        log.info("User {} subscribed to notifications", userId);
         return "SUBSCRIBED_SUCCESS";
     }
 

@@ -25,7 +25,6 @@ public class NotificationCoordinator {
         try {
             NotificationDto dto = convertToDto(notification);
             webSocketNotificationService.sendNotificationToUser(notification.getUserId(), dto);
-            log.info("Real-time notification sent to user: {}", notification.getUserId());
         } catch (Exception e) {
             log.error("Failed to send real-time notification: {}", e.getMessage());
         }
