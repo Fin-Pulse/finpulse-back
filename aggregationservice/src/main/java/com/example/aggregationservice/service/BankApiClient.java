@@ -482,4 +482,47 @@ public class BankApiClient {
 
         return null;
     }
+
+    /**
+     * Fetch products from bank API.
+     * Expects bank API to return JSON like:
+     * {
+     *   "data": {
+     *     "product": [ { "productId": "...", "productType": "...", ... }, ... ]
+     *   }
+     * }
+     *
+     * Returns Optional<List<Map<String,Object>>> where each map is the raw product object.
+     */
+    public Optional<List<Map<String, Object>>> fetchProducts(Bank bank) {
+        String url = bank.getBaseUrl() + "/products";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Accept", "application/json");
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                Object dataObj = body.get("data");
+                if (dataObj instanceof Map) {
+                    Map<String, Object> data = (Map<String, Object>) dataObj;
+                    Object productObj = data.get("product");
+                    if (productObj instanceof List) {
+                        List<Map<String, Object>> products = (List<Map<String, Object>>) productObj;
+                        return Optional.of(products);
+                    }
+                }
+            } else {
+                log.warn("Non-2xx response when fetching products from {}: {}", bank.getCode(), response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch products from bank {}: {}", bank.getCode(), e.getMessage(), e);
+        }
+
+        return Optional.empty();
+    }
+
 }
