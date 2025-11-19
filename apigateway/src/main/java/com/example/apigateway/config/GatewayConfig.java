@@ -54,6 +54,9 @@ public class GatewayConfig {
                 .route("aggregation-service", r -> r.path("/api/verification/**")
                         .filters(f -> f.filter(jwtGatewayFilter()))
                         .uri(aggregationServiceUrl))
+                .route("recommendation-service-ws", r -> r.path("/ws/recommendations/**")
+                        .uri(notificationServiceUrl))
+
                 .build();
     }
 

@@ -3,20 +3,6 @@ spring:
     name: apigateway
   cloud:
     gateway:
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowed-origin-patterns:
-              - "http://localhost"
-              - "http://127.0.0.1"
-            allowed-methods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-            allowed-headers: "*"
-            allow-credentials: true
       httpclient:
         connect-timeout: 1000
         response-timeout: 10s
