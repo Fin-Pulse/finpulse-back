@@ -1,4 +1,4 @@
-package com.example.notificationservice.config;
+package com.example.productservice.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,20 +14,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**",
-                                "/webjars/**", "/swagger-resources/**").permitAll()
-                        .requestMatchers("/ws/**", "/topic/**", "/app/**", "/user/**").permitAll()
-                        .requestMatchers("/api/notifications/**").permitAll()
+                .authorizeHttpRequests(authz -> authz
                         .anyRequest().permitAll()
                 )
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(headers -> headers.frameOptions().disable());
-        // УБРАЛИ: .cors() - CORS теперь обрабатывается только в API Gateway
+                .headers(headers -> headers
+                        .frameOptions().disable()
+                        .contentSecurityPolicy("default-src 'self'")
+                );
 
         return http.build();
     }
-
-    // УБРАЛИ ВЕСЬ CorsFilter бин - чтобы не дублировать CORS headers
 }

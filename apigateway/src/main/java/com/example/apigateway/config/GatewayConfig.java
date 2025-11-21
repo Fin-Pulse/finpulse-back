@@ -27,6 +27,9 @@ public class GatewayConfig {
     @Value("${aggregation.service.url:http://localhost:8082}")
     private String aggregationServiceUrl;
 
+    @Value("${product.service.url:http://localhost:8085}")
+    private String productServiceUrl;
+
     public GatewayConfig(JwtAuthFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
     }
@@ -45,7 +48,8 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtGatewayFilter()))
                         .uri(userServiceUrl))
                 .route("notification-service-rest", r -> r.path("/api/notifications/**")
-                        .filters(f -> f.filter(jwtGatewayFilter()))
+                        .filters(f -> f.filter(jwtGatewayFilter())
+                                .removeRequestHeader("Origin"))
                         .uri(notificationServiceUrl))
                 .route("notification-service-ws", r -> r.path("/ws/notifications/**")
                         .uri(notificationServiceUrl))
@@ -56,6 +60,9 @@ public class GatewayConfig {
                         .uri(aggregationServiceUrl))
                 .route("recommendation-service-ws", r -> r.path("/ws/recommendations/**")
                         .uri(notificationServiceUrl))
+                .route("product-service-leads", r -> r.path("/leads/**")
+                        .filters(f -> f.filter(jwtGatewayFilter()))
+                        .uri(productServiceUrl))
 
                 .build();
     }
@@ -63,9 +70,21 @@ public class GatewayConfig {
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
-        corsConfig.setAllowedOrigins(List.of("http://localhost", "http://127.0.0.1"));
+
+        corsConfig.setAllowedOrigins(List.of(
+                "http://178.72.136.220",
+                "http://178.72.136.220:80",
+                "http://178.72.136.220:3000",
+                "http://178.72.136.220:8080",
+                "http://localhost:3000",
+                "http://localhost:5137",
+                "http://127.0.0.1:3000",
+                "http://localhost"
+        ));
+
         corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfig.setAllowedHeaders(List.of("*"));
+        corsConfig.setExposedHeaders(List.of("*"));
         corsConfig.setAllowCredentials(true);
         corsConfig.setMaxAge(3600L);
 
@@ -74,4 +93,7 @@ public class GatewayConfig {
 
         return new CorsWebFilter(source);
     }
+
+
+
 }

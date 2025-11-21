@@ -36,23 +36,6 @@ public class NotificationService {
         }
     }
 
-    public void sendVerificationErrorNotification(String bankClientId, String bankName, String error) {
-        try {
-            UUID userId = getUserIdFromUserService(bankClientId);
-            if (userId == null) return;
-
-            CreateNotificationRequest request = new CreateNotificationRequest();
-            request.setUserId(userId);
-            request.setType("VERIFICATION_ERROR");
-            request.setTitle("Ошибка подключения банка");
-            request.setMessage(String.format("При подключении банка %s произошла ошибка: %s", bankName, error));
-            notificationServiceClient.createNotification(request);
-
-        } catch (Exception e) {
-            log.error("Failed to send error notification: {}", e.getMessage());
-        }
-    }
-
     private UUID getUserIdFromUserService(String bankClientId) {
         try {
             ResponseEntity<UUID> response = userServiceClient.getUserIdByBankClientId(bankClientId);

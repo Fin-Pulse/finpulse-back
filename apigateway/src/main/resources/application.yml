@@ -35,6 +35,10 @@ aggregation:
   service:
     url: ${AGGREGATION_SERVICE_URL:http://aggregationservice:8082}
 
+product:
+  service:
+    url: ${PRODUCT_SERVICE_URL:http://productservice:8085}
+
 jwt:
   secret: ${JWT_SECRET:EY4ZdvgJ4wnFjpeKYA2qmnCztsMR4wMAICMw7wrnSIaTRYCm51BWOaPmNtrn3n90}
 

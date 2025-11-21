@@ -21,7 +21,11 @@ public class RecommendationsReadyConsumer {
     private final WebSocketRecommendationService webSocketRecommendationService;
     private final RecommendationService recommendationService;
 
-    @KafkaListener(topics = "recommendations_ready", groupId = "notification-service")
+    @KafkaListener(
+            topics = "recommendations_ready",
+            groupId = "notification-service",
+            containerFactory = "recommendationsKafkaListenerContainerFactory"
+    )
     @Transactional
     public void consume(RecommendationsReadyEvent event) {
 

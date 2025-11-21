@@ -146,7 +146,6 @@ public class ConsentStatusService {
         } catch (Exception e) {
             log.error("Error processing approved consent for client {} in bank {}: {}",
                     clientId, bank.getCode(), e.getMessage());
-            notificationService.sendVerificationErrorNotification(clientId, bank.getCode(), e.getMessage());
             throw new RuntimeException("Failed to process approved consent", e);
         }
     }

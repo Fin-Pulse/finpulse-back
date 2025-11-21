@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -15,15 +16,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     boolean existsByAccountIdAndExternalTransactionId(UUID accountId, String externalTransactionId);
 
+    @Query("SELECT t.externalTransactionId FROM Transaction t WHERE t.accountId = :accountId AND t.externalTransactionId IN :externalIds")
+    Set<String> findExistingExternalIds(@Param("accountId") UUID accountId,
+                                        @Param("externalIds") List<String> externalIds);
+
     @Query("SELECT COUNT(t) > 0 FROM Transaction t WHERE t.accountId = :accountId AND t.externalTransactionId = :externalTransactionId")
     boolean transactionExists(@Param("accountId") UUID accountId, @Param("externalTransactionId") String externalTransactionId);
 
     List<Transaction> findByBankClientId(String bankClientId);
+
     List<Transaction> findByBankClientIdAndBookingDateBetween(String bankClientId, LocalDateTime start, LocalDateTime end);
 
     @Query("SELECT t FROM Transaction t WHERE t.bankClientId = :bankClientId ORDER BY t.bookingDate DESC")
     List<Transaction> findByBankClientIdWithPagination(@Param("bankClientId") String bankClientId,
                                                        org.springframework.data.domain.Pageable pageable);
+
     long countByBankClientId(String bankClientId);
 
     @Query("SELECT t FROM Transaction t WHERE t.bankClientId = :bankClientId ORDER BY t.bookingDate DESC LIMIT :limit")

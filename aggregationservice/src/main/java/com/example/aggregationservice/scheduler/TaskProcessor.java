@@ -19,7 +19,7 @@ public class TaskProcessor {
     private final MlAnalysisHandler mlAnalysisHandler;
 
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 10000)
     public void processTasks() {
         try {
             taskSchedulerService.processDueTasks(balanceUpdateHandler);

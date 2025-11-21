@@ -11,6 +11,12 @@ spring:
       - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
+    datasource:
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+        max-lifetime: 600000
     url: jdbc:postgresql://postgres:5432/finpulse
     username: postgres
     password: password
@@ -20,9 +26,14 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-    show-sql: true
+        show_sql: false
+        format_sql: false
+      show-sql: false
   redis:
     host: redis
     port: 6379
@@ -100,6 +111,10 @@ logging:
   level:
     com.example.aggregationservice: DEBUG
     org.springframework.web.client: DEBUG
+    org.hibernate.SQL: ERROR
+    org.hibernate.type.descriptor.sql: ERROR
+    org.hibernate.stat: ERROR
+    org.hibernate.orm.jdbc.bind: ERROR
 
 feign:
   client:

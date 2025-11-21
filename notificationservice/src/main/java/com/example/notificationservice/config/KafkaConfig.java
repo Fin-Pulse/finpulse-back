@@ -1,5 +1,7 @@
 package com.example.notificationservice.config;
 
+import com.example.notificationservice.dto.ForecastReadyEvent;
+import com.example.notificationservice.dto.RecommendationsReadyEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,35 +24,52 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers:kafka:9092}")
     private String bootstrapServers;
 
-    @Bean
-    public ConsumerFactory<String, Object> consumerFactory() {
+    // Общая конфигурация
+    private Map<String, Object> getCommonConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "notification-service");
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        
         config.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-        
         config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.example.notificationservice.dto,com.example.*");
-        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.example.notificationservice.dto.ForecastReadyEvent");
-        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        config.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, true);
-        
+        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
+        config.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
+        return config;
+    }
+
+    // Фабрика для ForecastReadyEvent
+    @Bean
+    public ConsumerFactory<String, ForecastReadyEvent> forecastConsumerFactory() {
+        Map<String, Object> config = getCommonConfig();
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "notification-service-forecast");
+        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ForecastReadyEvent.class);
+        return new DefaultKafkaConsumerFactory<>(config);
+    }
+
+    // Фабрика для RecommendationsReadyEvent
+    @Bean
+    public ConsumerFactory<String, RecommendationsReadyEvent> recommendationsConsumerFactory() {
+        Map<String, Object> config = getCommonConfig();
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "notification-service-recommendations");
+        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, RecommendationsReadyEvent.class);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
-        
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
-            new FixedBackOff(1000L, 3L)
-        );
-        factory.setCommonErrorHandler(errorHandler);
-        
+    public ConcurrentKafkaListenerContainerFactory<String, ForecastReadyEvent> forecastKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, ForecastReadyEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(forecastConsumerFactory());
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3L)));
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, RecommendationsReadyEvent> recommendationsKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, RecommendationsReadyEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(recommendationsConsumerFactory());
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3L)));
         return factory;
     }
 }

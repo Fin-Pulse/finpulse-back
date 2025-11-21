@@ -22,7 +22,11 @@ public class ForecastReadyConsumer {
     private final ForecastService forecastService;
     private final NotificationCoordinator notificationCoordinator;
 
-    @KafkaListener(topics = "forecast_ready", groupId = "notification-service")
+    @KafkaListener(
+            topics = "forecast_ready",
+            groupId = "notification-service",
+            containerFactory = "forecastKafkaListenerContainerFactory"
+    )
     @Transactional
     public void consumeForecastReadyEvent(ForecastReadyEvent event) {
         try {

@@ -2,31 +2,51 @@ server:
   port: 8084
 
 spring:
+  websocket:
+    enabled: true
+  application:
+    name: notificationservice
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/finpulse}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    url: jdbc:postgresql://postgres:5432/finpulse
+    username: postgres
+    password: password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      auto-configure: false
   liquibase:
     enabled: false
-spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# ВАЖНО: Отключаем Spring Security полностью
+security:
+  basic:
+    enabled: false
+  ignored: /**
+  sessions: stateless
 
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    filter: true
+
+minio:
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000/ml-charts}
 
 logging:
   level:
     com.example.notificationservice: INFO
-    org.hibernate.SQL: DEBUG
+    org.springframework.security: OFF
