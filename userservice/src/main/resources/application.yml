@@ -8,23 +8,33 @@ spring:
     url: jdbc:postgresql://postgres:5432/finpulse
     username: postgres
     password: password
+    hikari:
+      connection-timeout: 60000
+      maximum-pool-size: 5
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        show_sql: true
+        format_sql: true
+    show-sql: true
   redis:
     host: redis
     port: 6379
+    timeout: 10000
 
   liquibase:
     enabled: false
+
+  # Временно отключим security для отладки
   security:
     oauth2:
       resourceserver:
         jwt:
           secret-value: ${JWT_SECRET:EY4ZdvgJ4wnFjpeKYA2qmnCztsMR4wMAICMw7wrnSIaTRYCm51BWOaPmNtrn3n90}
+
 springdoc:
   api-docs:
     path: /api-docs
@@ -32,14 +42,16 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,beans,conditions
   endpoint:
     health:
       show-details: always
+
 jwt:
   secret: ${JWT_SECRET:defaultSecretKeyForHackathon123}
   expiration: 86400000
@@ -58,4 +70,10 @@ feign:
 
 logging:
   level:
-    com.example.userservice: DEBUG
+    com.example.userservice: TRACE
+    org.springframework.boot: INFO
+    org.springframework.context: INFO
+    org.springframework.beans: INFO
+    org.hibernate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
