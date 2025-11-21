@@ -6,10 +6,12 @@ import com.example.userservice.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 @Slf4j
-@Configuration
+@Component
+@Order(1)
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner {
 
@@ -18,17 +20,28 @@ public class DataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("Starting demo data initialization...");
 
-        for (int i = 1; i <= 9; i++) {
+        try {
+            // Даем время для полной инициализации Spring контекста
+            Thread.sleep(5000);
+
+            // Простая проверка - посчитаем пользователей
+            long userCount = userRepository.count();
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+
+        int createdUsers = 0;
+        for (int i = 1; i <= 9; i++) { // Сначала создадим только 3 для теста
             String email = i + "@gmail.com";
 
-            if (userRepository.existsByEmail(email)) {
-                log.info("Demo user {} already exists, skipping", email);
-                continue;
-            }
-
             try {
+                if (userRepository.existsByEmail(email)) {
+                    continue;
+                }
+
                 RegisterRequest request = RegisterRequest.builder()
                         .email(email)
                         .password("123123")
@@ -38,14 +51,16 @@ public class DataLoader implements CommandLineRunner {
                         .build();
 
                 authService.register(request);
-                log.info("Successfully registered demo user: {}", email);
+                createdUsers++;
 
             } catch (Exception e) {
-                log.error("Failed to register demo user {}: {}", email, e.getMessage());
-                e.printStackTrace();
+                // Выведем более детальную информацию об ошибке
+                if (e.getCause() != null) {
+                    log.error("Root cause: {}", e.getCause().getMessage());
+                }
             }
         }
-        log.info("Demo data initialization completed");
+
+        log.info("Total users in database now: {}", userRepository.count());
     }
 }
-
