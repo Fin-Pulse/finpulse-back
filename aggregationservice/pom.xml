@@ -76,6 +76,10 @@
             <artifactId>feign-httpclient</artifactId>
             <version>13.5</version>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
 
         <!-- Liquibase -->
         <dependency>

@@ -1,7 +1,9 @@
 package com.example.aggregationservice.service;
 
+import com.example.aggregationservice.client.NotificationServiceClient;
 import com.example.aggregationservice.client.UserServiceClient;
 import com.example.aggregationservice.dto.BankVerifyResponse;
+import com.example.aggregationservice.dto.CreateNotificationRequest;
 import com.example.aggregationservice.dto.PendingBank;
 import com.example.aggregationservice.dto.UserForecastUpdateEvent;
 import com.example.aggregationservice.model.*;
@@ -34,6 +36,7 @@ public class UserVerificationService {
     private final TransactionService transactionService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final UserServiceClient userServiceClient;
+    private final NotificationServiceClient notificationServiceClient;
 
     @Transactional
     public BankVerifyResponse verifyClient(String bankClientId) {
@@ -45,6 +48,8 @@ public class UserVerificationService {
         String verifiedBank = null;
         String consentId = null;
         boolean requiresUserAction = false;
+
+        UUID userId = getUserIdByBankClientId(bankClientId);
 
         for (Bank bank : activeBanks) {
             try {
@@ -77,6 +82,8 @@ public class UserVerificationService {
 
                     pendingBanks.add(pendingBank);
                     requiresUserAction = true;
+
+                    createBankConsentNotification(userId, bank, bankClientId);
 
                     continue;
                 }
@@ -154,6 +161,45 @@ public class UserVerificationService {
                 .pendingBanks(pendingBanks)
                 .requiresUserAction(requiresUserAction)
                 .build();
+    }
+
+    private void createBankConsentNotification(UUID userId, Bank bank, String bankClientId) {
+        if (userId == null) {
+            log.warn("Cannot create notification: userId not found for bankClientId: {}", bankClientId);
+            return;
+        }
+
+        try {
+            CreateNotificationRequest request = new CreateNotificationRequest();
+            request.setUserId(userId);
+            request.setType("BANK_CONSENT_REQUIRED");
+            request.setTitle("Требуется ваше согласие в банке");
+            request.setMessage(String.format(
+                    "Для получения точных финансовых прогнозов необходимо предоставить доступ к данным в банке %s. " +
+                            "Пожалуйста, откройте приложение банка и подтвердите согласие на предоставление данных.",
+                    bank.getName()
+            ));
+
+            notificationServiceClient.createNotification(request);
+
+            log.info("Created bank consent notification for user {} in bank {}", userId, bank.getCode());
+
+        } catch (Exception e) {
+            log.error("Failed to create bank consent notification for user {} in bank {}: {}",
+                    userId, bank.getCode(), e.getMessage());
+        }
+    }
+
+    private UUID getUserIdByBankClientId(String bankClientId) {
+        try {
+            ResponseEntity<UUID> response = userServiceClient.getUserIdByBankClientId(bankClientId);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+        } catch (Exception e) {
+            log.error("Failed to get user ID for bankClientId {}: {}", bankClientId, e.getMessage());
+        }
+        return null;
     }
 
     private void sendToMlService(String bankClientId, String analysisType) {

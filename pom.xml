@@ -19,6 +19,7 @@
         <module>userservice</module>
         <module>aggregationservice</module>
         <module>notificationservice</module>
+        <module>productservice</module>
     </modules>
 
     <properties>

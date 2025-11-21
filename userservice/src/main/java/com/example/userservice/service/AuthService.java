@@ -194,7 +194,7 @@ public class AuthService {
 
     }
 
-    private UserProfile mapToProfile(User user) {
+    public UserProfile mapToProfile(User user) {
         UserProfile profile = new UserProfile();
         profile.setId(user.getId());
         profile.setEmail(user.getEmail());
@@ -205,5 +205,9 @@ public class AuthService {
         profile.setVerificationStatus(user.getVerificationStatus());
         profile.setCreatedAt(user.getCreatedAt());
         return profile;
+    }
+
+    public String generateTokenForUser(User user) {
+        return jwtService.generateToken(user.getId(), user.getEmail());
     }
 }
