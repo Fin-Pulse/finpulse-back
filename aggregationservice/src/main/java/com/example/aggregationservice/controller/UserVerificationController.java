@@ -44,7 +44,7 @@ public class UserVerificationController {
                     "maxChecks", 720
             );
 
-            Instant firstCheck = Instant.now().plusSeconds(120);
+            Instant firstCheck = Instant.now().plusSeconds(20);
 
             taskSchedulerService.scheduleTask(
                     "BANK_CONSENT_MONITORING",

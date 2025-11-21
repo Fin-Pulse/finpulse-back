@@ -1,3 +1,4 @@
+
 package com.example.aggregationservice.service;
 
 import com.example.aggregationservice.model.Bank;
@@ -8,13 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Slf4j
@@ -25,7 +25,7 @@ public class BankApiClient {
     private final RestTemplate restTemplate;
     private final BankAuthService bankAuthService;
 
-
+    // Основной метод вызова API с улучшенной обработкой ошибок
     private <T> ResponseEntity<T> callBankApi(Bank bank, String url, HttpMethod method,
                                               HttpEntity<?> requestEntity, Class<T> responseType) {
         try {
@@ -44,9 +44,29 @@ public class BankApiClient {
 
             return restTemplate.exchange(url, method, entityWithAuth, responseType);
 
+        } catch (ResourceAccessException e) {
+            // Банк недоступен (таймаут, сетевые проблемы)
+            log.error("Bank API unavailable for bank {}: {}", bank.getCode(), e.getMessage());
+            throw new BankApiException("Bank API unavailable for " + bank.getCode(), e);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // HTTP ошибки (4xx, 5xx)
+            log.error("Bank API error for bank {}: {} - {}", bank.getCode(), e.getStatusCode(), e.getMessage());
+            throw new BankApiException("Bank API error for " + bank.getCode() + ": " + e.getStatusCode(), e);
         } catch (Exception e) {
+            // Все остальные ошибки
             log.error("Bank API call failed for bank {}: {}", bank.getCode(), e.getMessage());
-            throw new RuntimeException("Bank API call failed for " + bank.getCode(), e);
+            throw new BankApiException("Bank API call failed for " + bank.getCode(), e);
+        }
+    }
+
+    // Безопасная версия для методов, которые не должны падать при ошибках банка
+    private <T> Optional<ResponseEntity<T>> callBankApiSafely(Bank bank, String url, HttpMethod method,
+                                                              HttpEntity<?> requestEntity, Class<T> responseType) {
+        try {
+            return Optional.of(callBankApi(bank, url, method, requestEntity, responseType));
+        } catch (BankApiException e) {
+            log.warn("Bank API call failed safely for bank {}: {}", bank.getCode(), e.getMessage());
+            return Optional.empty();
         }
     }
 
@@ -66,9 +86,11 @@ public class BankApiClient {
 
         HttpEntity<ConsentRequest> request = new HttpEntity<>(body, headers);
 
-        try {
-            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.POST, request, Map.class);
+        // Используем безопасный вызов
+        Optional<ResponseEntity<Map>> responseOpt = callBankApiSafely(bank, url, HttpMethod.POST, request, Map.class);
 
+        if (responseOpt.isPresent()) {
+            ResponseEntity<Map> response = responseOpt.get();
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
 
@@ -104,9 +126,6 @@ public class BankApiClient {
                     return Optional.of(consentResponse);
                 }
             }
-
-        } catch (Exception e) {
-            log.error("Consent request failed for {} in bank {}: {}", clientId, bank.getCode(), e.getMessage());
         }
 
         return Optional.empty();
@@ -121,9 +140,11 @@ public class BankApiClient {
 
         HttpEntity<String> request = new HttpEntity<>(headers);
 
-        try {
-            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+        // Используем безопасный вызов
+        Optional<ResponseEntity<Map>> responseOpt = callBankApiSafely(bank, url, HttpMethod.GET, request, Map.class);
 
+        if (responseOpt.isPresent()) {
+            ResponseEntity<Map> response = responseOpt.get();
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
                 Map<String, Object> data = (Map<String, Object>) responseBody.get("data");
@@ -145,8 +166,6 @@ public class BankApiClient {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.error("Error checking consent status for request {}: {}", requestId, e.getMessage());
         }
 
         return Optional.empty();
@@ -161,9 +180,11 @@ public class BankApiClient {
 
         HttpEntity<String> request = new HttpEntity<>(headers);
 
-        try {
-            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+        // Используем безопасный вызов
+        Optional<ResponseEntity<Map>> responseOpt = callBankApiSafely(bank, url, HttpMethod.GET, request, Map.class);
 
+        if (responseOpt.isPresent()) {
+            ResponseEntity<Map> response = responseOpt.get();
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
                 log.info("Accounts response: {}", responseBody);
@@ -204,8 +225,6 @@ public class BankApiClient {
                     return accounts;
                 }
             }
-        } catch (Exception e) {
-            log.error("Failed to fetch accounts for consent {}: {}", consentId, e.getMessage(), e);
         }
 
         return Collections.emptyList();
@@ -229,9 +248,11 @@ public class BankApiClient {
 
         HttpEntity<String> request = new HttpEntity<>(headers);
 
-        try {
-            ResponseEntity<BankTransactionResponse> response = callBankApi(bank, url, HttpMethod.GET, request, BankTransactionResponse.class);
+        // Используем безопасный вызов
+        Optional<ResponseEntity<BankTransactionResponse>> responseOpt = callBankApiSafely(bank, url, HttpMethod.GET, request, BankTransactionResponse.class);
 
+        if (responseOpt.isPresent()) {
+            ResponseEntity<BankTransactionResponse> response = responseOpt.get();
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 BankTransactionResponse responseBody = response.getBody();
                 List<BankTransactionResponse.Transaction> bankTransactions =
@@ -243,7 +264,7 @@ public class BankApiClient {
                     BigDecimal amount = parseAmount(bankTx.getAmount());
                     BigDecimal absoluteAmount = amount.abs();
                     String creditDebitIndicator = bankTx.getCreditDebitIndicator();
-                    
+
                     Boolean isExpense = "Debit".equalsIgnoreCase(creditDebitIndicator);
 
                     String category = determineCategory(bankTx);
@@ -263,8 +284,6 @@ public class BankApiClient {
 
                 return transactions;
             }
-        } catch (Exception e) {
-            log.error("Failed to fetch transactions for account {}: {}", accountId, e.getMessage());
         }
 
         return Collections.emptyList();
@@ -279,36 +298,46 @@ public class BankApiClient {
 
         HttpEntity<String> request = new HttpEntity<>(headers);
 
-        try {
-            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+        // Используем безопасный вызов
+        Optional<ResponseEntity<Map>> responseOpt = callBankApiSafely(bank, url, HttpMethod.GET, request, Map.class);
 
+        if (responseOpt.isPresent()) {
+            ResponseEntity<Map> response = responseOpt.get();
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return Optional.of(response.getBody());
             }
-        } catch (Exception e) {
-            log.error("Failed to fetch balance for account {}: {}", accountId, e.getMessage());
         }
 
         return Optional.empty();
     }
 
-    @Deprecated
-    public List<Transaction> getAccountTransactions(String bankClientId, String accountId,
-                                                    LocalDateTime fromDate, LocalDateTime toDate) {
-        log.warn("Using deprecated getAccountTransactions method - should be replaced with fetchAccountTransactions");
-        BigDecimal amount = new BigDecimal("100.50");
-        return List.of(
-                Transaction.builder()
-                        .externalTransactionId("TX_" + System.currentTimeMillis())
-                        .amount(amount)
-                        .absoluteAmount(amount.abs())
-                        .isExpense(false)
-                        .creditDebitIndicator("Credit")
-                        .bookingDate(LocalDateTime.now())
-                        .transactionInformation("Test transaction from Bank API")
-                        .category("other")
-                        .build()
-        );
+    public Optional<List<Map<String, Object>>> fetchProducts(Bank bank) {
+        String url = bank.getBaseUrl() + "/products";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Accept", "application/json");
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        // Используем безопасный вызов
+        Optional<ResponseEntity<Map>> responseOpt = callBankApiSafely(bank, url, HttpMethod.GET, request, Map.class);
+
+        if (responseOpt.isPresent()) {
+            ResponseEntity<Map> response = responseOpt.get();
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                Object dataObj = body.get("data");
+                if (dataObj instanceof Map) {
+                    Map<String, Object> data = (Map<String, Object>) dataObj;
+                    Object productObj = data.get("product");
+                    if (productObj instanceof List) {
+                        List<Map<String, Object>> products = (List<Map<String, Object>>) productObj;
+                        return Optional.of(products);
+                    }
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 
     private Instant parseDateTime(String dateTimeStr) {
@@ -481,5 +510,57 @@ public class BankApiClient {
         }
 
         return null;
+    }
+
+    /**
+     * Fetch products from bank API.
+     * Expects bank API to return JSON like:
+     * {
+     *   "data": {
+     *     "product": [ { "productId": "...", "productType": "...", ... }, ... ]
+     *   }
+     * }
+     *
+     * Returns Optional<List<Map<String,Object>>> where each map is the raw product object.
+
+    public Optional<List<Map<String, Object>>> fetchProducts(Bank bank) {
+        String url = bank.getBaseUrl() + "/products";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Accept", "application/json");
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = callBankApi(bank, url, HttpMethod.GET, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                Object dataObj = body.get("data");
+                if (dataObj instanceof Map) {
+                    Map<String, Object> data = (Map<String, Object>) dataObj;
+                    Object productObj = data.get("product");
+                    if (productObj instanceof List) {
+                        List<Map<String, Object>> products = (List<Map<String, Object>>) productObj;
+                        return Optional.of(products);
+                    }
+                }
+            } else {
+                log.warn("Non-2xx response when fetching products from {}: {}", bank.getCode(), response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch products from bank {}: {}", bank.getCode(), e.getMessage(), e);
+        }
+
+        return Optional.empty();
+    }*/
+
+    private static class BankApiException extends RuntimeException {
+        public BankApiException(String message) {
+            super(message);
+        }
+
+        public BankApiException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

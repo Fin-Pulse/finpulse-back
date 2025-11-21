@@ -49,6 +49,16 @@ public class TaskInitializer implements ApplicationRunner {
                     Map.of("analysisType", "WEEKLY_FORECAST"),
                     nextSunday11PM
             );
+
+            taskSchedulerService.scheduleTask(
+                    "PRODUCT_SYNC",
+                    "DAILY_PRODUCT_SYNC",
+                    Map.of("scope", "ALL_BANKS"),
+                    getNextExecutionTime(3, 0)
+            );
+            log.info("Scheduled daily product sync");
+
+
             log.info("Scheduled weekly ML analysis for {}", nextSunday11PM);
 
             log.info("All scheduled tasks initialized successfully");

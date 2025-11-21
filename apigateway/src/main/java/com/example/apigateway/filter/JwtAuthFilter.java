@@ -34,10 +34,18 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getPath().toString();
 
+            // 🔥 1. Обязательно пропускаем CORS preflight
+            if (request.getMethod().name().equals("OPTIONS")) {
+                exchange.getResponse().setStatusCode(HttpStatus.OK);
+                return exchange.getResponse().setComplete();
+            }
+
+            // 🔥 2. Публичные эндпоинты
             if (isPublicEndpoint(path)) {
                 return chain.filter(exchange);
             }
 
+            // 🔥 3. JWT проверка
             String authHeader = request.getHeaders().getFirst("Authorization");
 
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -54,11 +62,10 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 String userId = jwtUtil.extractUserId(token);
                 String email = jwtUtil.extractEmail(token);
 
-                // Пробрасываем токен и добавляем user context
                 ServerHttpRequest modifiedRequest = request.mutate()
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email)
-                        .header("Authorization", authHeader) // <- ключевой момент
+                        .header("Authorization", authHeader)
                         .build();
 
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
@@ -68,6 +75,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             }
         };
     }
+
 
     private boolean isPublicEndpoint(String path) {
         return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
